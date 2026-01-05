@@ -136,10 +136,12 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
             tabela = div_display.find('table')
             if tabela:
                 linhas = tabela.find_all('tr')
+                posicao = 0
                 for linha in linhas:
                     # Procurar células com número e animal
                     tds = linha.find_all('td')
                     if len(tds) >= 3:
+                        # TD 1 ou primeira célula: pode conter posição/colocação
                         # TD 2: número (dentro de <a> ou <h5>)
                         # TD 3: número do animal (dentro de <h5>)
                         # TD 4: nome do animal (dentro de <h5>)
@@ -150,6 +152,15 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                             numero = numero_elem.get_text(strip=True)
                             animal = animal_elem.get_text(strip=True)
                             
+                            # Tentar extrair posição da primeira célula ou usar contador
+                            posicao_texto = tds[0].get_text(strip=True) if len(tds) > 0 else ""
+                            # Procurar número de posição (1, 2, 3, etc.) ou usar contador
+                            posicao_match = re.search(r'^(\d+)', posicao_texto)
+                            if posicao_match:
+                                posicao = int(posicao_match.group(1))
+                            else:
+                                posicao += 1
+                            
                             # Validar se é um resultado válido (número de 3-4 dígitos e animal conhecido)
                             if re.match(r'^\d{3,4}$', numero) and len(animal) > 2:
                                 resultados.append({
@@ -157,6 +168,8 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                                     'animal': animal,
                                     'loteria': loteria_nome,
                                     'horario': horario,
+                                    'posicao': posicao,
+                                    'colocacao': f"{posicao}°",
                                     'texto_completo': f"{numero} {animal}",
                                     'timestamp': datetime.now().isoformat(),
                                     'data_extração': datetime.now().strftime('%d/%m/%Y'),
@@ -165,6 +178,7 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         
         # Método 2: Extrair de h4 tags (página principal)
         h4_tags = soup.find_all('h4')
+        posicao_h4 = 0
         for h4 in h4_tags:
             texto = h4.get_text(strip=True)
             match = re.search(r'^(\d{4})\s+([A-Za-záàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]+)$', texto)
@@ -179,11 +193,14 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                 horario_match = re.search(r'(\d{1,2}[:h]\d{0,2})', texto_contexto.lower())
                 horario = horario_match.group(1) if horario_match else None
                 
+                posicao_h4 += 1
                 resultados.append({
                     'numero': numero,
                     'animal': animal,
                     'loteria': loteria_nome,
                     'horario': horario,
+                    'posicao': posicao_h4,
+                    'colocacao': f"{posicao_h4}°",
                     'texto_completo': texto,
                     'timestamp': datetime.now().isoformat(),
                     'data_extração': datetime.now().strftime('%d/%m/%Y'),
@@ -204,6 +221,7 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         # Se não encontrou, procurar em outras tags (fallback)
         if not resultados:
             elementos = soup.find_all(['div', 'span', 'p', 'td', 'h1', 'h2', 'h3', 'h5', 'h6'])
+            posicao_fallback = 0
             for elem in elementos:
                 texto = elem.get_text(separator=' ', strip=True)
                 match = re.search(r'(\d{4})\s+([A-Za-záàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]+)', texto)
@@ -220,11 +238,14 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                         horario_match = re.search(r'(\d{1,2}[:h]\d{0,2})', texto.lower())
                         horario = horario_match.group(1) if horario_match else None
                         
+                        posicao_fallback += 1
                         resultados.append({
                             'numero': numero,
                             'animal': animal,
                             'loteria': loteria_nome,
                             'horario': horario,
+                            'posicao': posicao_fallback,
+                            'colocacao': f"{posicao_fallback}°",
                             'texto_completo': texto[:100],
                             'timestamp': datetime.now().isoformat(),
                             'data_extração': datetime.now().strftime('%d/%m/%Y'),
@@ -252,6 +273,9 @@ def extrair_resultados_principal():
         response.encoding = 'utf-8'
         soup = BeautifulSoup(response.text, 'html.parser')
         
+        # Agrupar por loteria e horário para calcular posições
+        resultados_por_grupo = {}
+        
         h4_tags = soup.find_all('h4')
         for h4 in h4_tags:
             texto = h4.get_text(strip=True)
@@ -270,7 +294,12 @@ def extrair_resultados_principal():
                 horario_match = re.search(r'(\d{1,2}[:h]\d{0,2})', texto_contexto.lower())
                 horario = horario_match.group(1) if horario_match else None
                 
-                resultados.append({
+                # Chave para agrupar (loteria + horário)
+                chave_grupo = f"{loteria}_{horario}"
+                if chave_grupo not in resultados_por_grupo:
+                    resultados_por_grupo[chave_grupo] = []
+                
+                resultados_por_grupo[chave_grupo].append({
                     'numero': numero,
                     'animal': animal,
                     'loteria': loteria,
@@ -280,6 +309,13 @@ def extrair_resultados_principal():
                     'data_extração': datetime.now().strftime('%d/%m/%Y'),
                     'url_origem': URL_PRINCIPAL
                 })
+        
+        # Adicionar posições baseadas na ordem dentro de cada grupo
+        for chave, grupo_resultados in resultados_por_grupo.items():
+            for idx, resultado in enumerate(grupo_resultados, start=1):
+                resultado['posicao'] = idx
+                resultado['colocacao'] = f"{idx}°"
+                resultados.append(resultado)
     except Exception as e:
         logger.error(f"Erro ao extrair da página principal: {e}")
     
@@ -338,6 +374,27 @@ def gerar_id(resultado):
     chave = f"{resultado['loteria']}_{resultado['numero']}_{resultado['animal']}"
     return hashlib.md5(chave.encode()).hexdigest()
 
+def adicionar_posicoes(resultados):
+    """Adiciona posições/colocações aos resultados baseado na ordem dentro de cada grupo (loteria + horário)"""
+    # Agrupar por loteria e horário
+    grupos = {}
+    for resultado in resultados:
+        chave = f"{resultado.get('loteria', '')}_{resultado.get('horario', '')}"
+        if chave not in grupos:
+            grupos[chave] = []
+        grupos[chave].append(resultado)
+    
+    # Adicionar posições dentro de cada grupo
+    resultados_com_posicao = []
+    for chave, grupo in grupos.items():
+        # Ordenar por timestamp ou manter ordem original
+        for idx, resultado in enumerate(grupo, start=1):
+            resultado['posicao'] = idx
+            resultado['colocacao'] = f"{idx}°"
+            resultados_com_posicao.append(resultado)
+    
+    return resultados_com_posicao
+
 def verificar():
     """Faz verificação em todas as URLs"""
     logger.info(f"Verificando {len(URLS_ESPECIFICAS)} URLs específicas + página principal...")
@@ -369,12 +426,17 @@ def verificar():
         logger.info("💡 Para verificar URLs específicas, instale ChromeDriver:")
         logger.info("   brew install chromedriver")
     
+    # Adicionar posições aos resultados
+    todos_resultados = adicionar_posicoes(todos_resultados)
+    
     # Detectar novos resultados
     novos = [r for r in todos_resultados if gerar_id(r) not in ids_anteriores]
     
     if novos:
         logger.info(f"✓ {len(novos)} novos resultados encontrados!")
         dados_anteriores['resultados'].extend(novos)
+        # Re-adicionar posições a todos os resultados (incluindo antigos)
+        dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
         dados_anteriores['ultima_verificacao'] = datetime.now().isoformat()
         dados_anteriores['total_resultados'] = len(dados_anteriores['resultados'])
         salvar_resultados(dados_anteriores)
@@ -382,6 +444,8 @@ def verificar():
         sincronizar_cloudflare()
         return len(novos)
     
+    # Atualizar posições mesmo se não houver novos resultados
+    dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
     dados_anteriores['ultima_verificacao'] = datetime.now().isoformat()
     salvar_resultados(dados_anteriores)
     return 0
