@@ -21,15 +21,31 @@ class Usuario(Base):
     apostas = relationship("Aposta", back_populates="usuario")
     transacoes = relationship("Transacao", back_populates="usuario")
 
+class Extracao(Base):
+    """Extração pré-criada no sistema"""
+    __tablename__ = 'extractions'
+    
+    id = Column(Integer, primary_key=True)
+    loteria = Column(String(100), nullable=False)  # Nome da loteria no sistema
+    horario = Column(String(10), nullable=False)  # Horário do sorteio (ex: "11:30")
+    close_time = Column(DateTime, nullable=False)  # Horário que fecha para apostas
+    real_close_time = Column(DateTime, nullable=False)  # Horário que resultado é divulgado
+    status = Column(String(20), default='aberta')  # aberta, fechada, sorteada, liquidada
+    data_criacao = Column(DateTime, default=datetime.utcnow)
+    
+    apostas = relationship("Aposta", back_populates="extracao")
+    resultado = relationship("Resultado", back_populates="extracao", uselist=False)
+
 class Aposta(Base):
     __tablename__ = 'apostas'
     
     id = Column(Integer, primary_key=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
+    extraction_id = Column(Integer, ForeignKey('extractions.id'), nullable=False)  # CRÍTICO: Vinculado à extração
     numero = Column(String(4), nullable=False)  # Número apostado
     animal = Column(String(50), nullable=False)  # Animal apostado
     valor = Column(Float, nullable=False)  # Valor da aposta
-    loteria = Column(String(100), nullable=False)  # Qual loteria
+    loteria = Column(String(100), nullable=False)  # Qual loteria (para exibição)
     horario = Column(String(10), nullable=False)  # Horário do sorteio (ex: "11:00")
     tipo_aposta = Column(String(20), default='grupo')  # grupo, dezena, centena, milhar
     status = Column(String(20), default='pendente')  # pendente, ganhou, perdeu, cancelada
@@ -38,19 +54,22 @@ class Aposta(Base):
     data_liquidacao = Column(DateTime, nullable=True)
     
     usuario = relationship("Usuario", back_populates="apostas")
+    extracao = relationship("Extracao", back_populates="apostas")
     liquidacao = relationship("Liquidacao", back_populates="aposta", uselist=False)
 
 class Resultado(Base):
     __tablename__ = 'resultados'
     
     id = Column(Integer, primary_key=True)
+    extraction_id = Column(Integer, ForeignKey('extractions.id'), nullable=False)  # Vinculado à extração
     numero = Column(String(4), nullable=False)
     animal = Column(String(50), nullable=False)
-    loteria = Column(String(100), nullable=False)
-    horario = Column(String(10), nullable=False)
+    loteria = Column(String(100), nullable=False)  # Para exibição
+    horario = Column(String(10), nullable=False)  # Para exibição
     timestamp = Column(DateTime, default=datetime.utcnow)
     processado = Column(Boolean, default=False)  # Se já foi usado para liquidar
     
+    extracao = relationship("Extracao", back_populates="resultado")
     liquidacoes = relationship("Liquidacao", back_populates="resultado")
 
 class Liquidacao(Base):
