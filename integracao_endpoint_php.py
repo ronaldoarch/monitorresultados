@@ -120,7 +120,7 @@ def api_status():
     """Status do sistema"""
     return jsonify({
         'sistema': 'Integração com Endpoint PHP',
-        'endpoint_php': ENDPOINT_PHP,
+        'endpoint_php': get_endpoint_php(),
         'processamento_automatico': processamento_automatico_rodando,
         'timestamp': datetime.now().isoformat()
     })
