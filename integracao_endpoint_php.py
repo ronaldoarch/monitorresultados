@@ -17,9 +17,8 @@ app = Flask(__name__)
 CORS(app)
 
 # URL do endpoint PHP do painel
-ENDPOINT_PHP = 'https://lotbicho.com/backend/scraper/processar-resultados-completo.php'
-# Ou use variável de ambiente:
-# ENDPOINT_PHP = os.getenv('ENDPOINT_PHP', 'https://lotbicho.com/backend/scraper/processar-resultados-completo.php')
+# Configure aqui ou via variável de ambiente ENDPOINT_PHP
+ENDPOINT_PHP = os.getenv('ENDPOINT_PHP', 'https://lotbicho.com/backend/scraper/processar-resultados-completo.php')
 
 def processar_resultados_via_php():
     """
