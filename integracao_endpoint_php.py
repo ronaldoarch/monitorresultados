@@ -228,8 +228,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Configurar endpoint PHP se fornecido
+    global ENDPOINT_PHP
     if args.endpoint_php:
-        global ENDPOINT_PHP
         ENDPOINT_PHP = args.endpoint_php
     
     # Iniciar processamento automático se solicitado
