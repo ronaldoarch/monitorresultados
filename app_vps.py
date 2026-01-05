@@ -24,6 +24,11 @@ if os.path.exists(venv_path):
 app = Flask(__name__)
 CORS(app)
 
+# Configurar logging
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Importar monitor
 try:
     from monitor_selenium import verificar, carregar_resultados
@@ -167,9 +172,14 @@ def monitor_status():
 def resultados_json():
     """Serve resultados.json"""
     try:
-        return send_from_directory('.', 'resultados.json')
-    except:
-        return jsonify({'resultados': []}), 404
+        dados = carregar_resultados()
+        # Se não houver dados, retornar estrutura vazia válida
+        if not dados:
+            dados = {'resultados': [], 'ultima_verificacao': None, 'total_resultados': 0}
+        return jsonify(dados)
+    except Exception as e:
+        logger.warning(f"Erro ao carregar resultados.json: {e}")
+        return jsonify({'resultados': [], 'ultima_verificacao': None, 'total_resultados': 0, 'erro': str(e)})
 
 if __name__ == '__main__':
     import argparse
