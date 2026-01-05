@@ -38,6 +38,10 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
 
-# Comando de start com Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--config", "gunicorn_config.py", "app_vps:app"]
+# Copiar script de inicialização
+COPY iniciar_com_monitor.sh .
+RUN chmod +x iniciar_com_monitor.sh
+
+# Comando de start: inicia monitor em background + servidor web
+CMD ["./iniciar_com_monitor.sh"]
 
