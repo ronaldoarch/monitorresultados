@@ -212,10 +212,10 @@ def index():
     </ul>
     <h2>Configuração:</h2>
     <p>Endpoint PHP: <code>{}</code></p>
-    <p>Para mudar, edite a variável <code>ENDPOINT_PHP</code> no código.</p>
+    <p>Para mudar, configure a variável de ambiente <code>ENDPOINT_PHP</code>.</p>
     </body>
     </html>
-    """.format(ENDPOINT_PHP)
+    """.format(get_endpoint_php())
 
 if __name__ == '__main__':
     from flask import request
