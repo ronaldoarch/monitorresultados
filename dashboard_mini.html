@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor Resultados</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:sans-serif;background:#0f172a;color:#f1f5f9;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+header{text-align:center;margin-bottom:30px}
+h1{font-size:2rem;color:#6366f1;margin-bottom:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px}
+.stat{background:#1e293b;padding:20px;border-radius:8px;text-align:center;border:1px solid #334155}
+.stat-value{font-size:1.8rem;color:#6366f1;font-weight:700}
+.stat-label{color:#94a3b8;font-size:0.9rem;margin-top:5px}
+.controls{margin-bottom:20px;display:flex;gap:10px}
+.btn{background:#6366f1;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer}
+.btn:hover{background:#4f46e5}
+.select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;padding:10px;border-radius:6px;min-width:200px}
+.grupo{background:#1e293b;border-radius:8px;padding:20px;margin-bottom:25px;border:1px solid #334155}
+.grupo-header{display:flex;align-items:center;gap:15px;margin-bottom:15px;padding-bottom:15px;border-bottom:2px solid #6366f1;flex-wrap:wrap}
+.grupo-titulo{font-size:1.3rem;color:#6366f1;font-weight:700;flex:1}
+.grupo-horario{background:#334155;color:#94a3b8;padding:6px 12px;border-radius:4px;font-size:0.9rem}
+.grupo-count{background:#8b5cf6;color:white;padding:6px 12px;border-radius:4px;font-size:0.9rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:6px;padding:15px;text-align:center}
+.numero{font-size:1.8rem;color:#6366f1;font-weight:700;margin-bottom:8px}
+.animal{font-size:1rem;color:#f1f5f9;text-transform:capitalize}
+.timestamp{font-size:0.75rem;color:#94a3b8;margin-top:10px;padding-top:10px;border-top:1px solid #334155}
+.empty{text-align:center;padding:40px;color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>🎰 Monitor de Resultados</h1><p>Resultados do Bicho Certo</p></header>
+<div class="stats">
+<div class="stat"><div class="stat-value" id="total">0</div><div class="stat-label">Total</div></div>
+<div class="stat"><div class="stat-value" id="ultima">N/A</div><div class="stat-label">Última Verificação</div></div>
+<div class="stat"><div class="stat-value" id="loterias">0</div><div class="stat-label">Loterias</div></div>
+</div>
+<div class="controls">
+<button class="btn" onclick="carregar()">🔄 Atualizar</button>
+<select class="select" id="filtro" onchange="filtrar()"><option value="">Todas</option></select>
+</div>
+<div id="container"></div>
+</div>
+<script>
+let dados=[];
+async function carregar(){
+try{
+const r=await fetch('resultados.json?'+Date.now());
+const d=await r.json();
+dados=d.resultados||[];
+document.getElementById('total').textContent=dados.length;
+if(d.ultima_verificacao){
+const dt=new Date(d.ultima_verificacao);
+document.getElementById('ultima').textContent=dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+const lot=new Set(dados.map(x=>x.loteria));
+document.getElementById('loterias').textContent=lot.size;
+const sel=document.getElementById('filtro');
+sel.innerHTML='<option value="">Todas</option>';
+[...lot].sort().forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});
+renderizar();
+}catch(e){document.getElementById('container').innerHTML='<div class="empty">Erro ao carregar</div>';}
+}
+function renderizar(){
+const c=document.getElementById('container');
+if(dados.length===0){c.innerHTML='<div class="empty">Nenhum resultado</div>';return;}
+const grupos={};
+dados.forEach(r=>{
+const k=`${r.loteria}_${r.horario||'N/A'}`;
+if(!grupos[k])grupos[k]={loteria:r.loteria,horario:r.horario||'N/A',resultados:[]};
+grupos[k].resultados.push(r);
+});
+const ord=Object.values(grupos).sort((a,b)=>a.loteria.localeCompare(b.loteria)||(b.horario||'').localeCompare(a.horario||''));
+c.innerHTML=ord.map(g=>{
+g.resultados.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+const cards=g.resultados.map(r=>{
+const dt=new Date(r.timestamp);
+return`<div class="card" data-loteria="${r.loteria}"><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`;
+}).join('');
+return`<div class="grupo" data-loteria="${g.loteria}"><div class="grupo-header"><h3 class="grupo-titulo">${g.loteria}</h3><span class="grupo-horario">🕐 ${g.horario}</span><span class="grupo-count">${g.resultados.length}</span></div><div class="grid">${cards}</div></div>`;
+}).join('');
+}
+function filtrar(){
+const v=document.getElementById('filtro').value;
+document.querySelectorAll('.grupo').forEach(g=>{g.style.display=(!v||g.dataset.loteria===v)?'block':'none';});
+}
+carregar();
+setInterval(carregar,30000);
+</script>
+</body>
+</html>
