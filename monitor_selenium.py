@@ -422,13 +422,16 @@ def carregar_resultados(arquivo='resultados.json'):
         try:
             with open(arquivo, 'r', encoding='utf-8') as f:
                 dados = json.load(f)
-                # Adicionar posições se não existirem
+                # Adicionar posições e estados se não existirem
                 if 'resultados' in dados:
-                    # Verificar se algum resultado não tem posição
-                    precisa_posicao = any('posicao' not in r for r in dados['resultados'])
-                    if precisa_posicao:
+                    # Verificar se algum resultado não tem posição ou estado
+                    precisa_atualizacao = any(
+                        'posicao' not in r or 'estado' not in r 
+                        for r in dados['resultados']
+                    )
+                    if precisa_atualizacao:
                         dados['resultados'] = adicionar_posicoes(dados['resultados'])
-                        # Salvar com posições
+                        # Salvar com posições e estados
                         salvar_resultados(dados, arquivo)
                 return dados
         except:
@@ -449,7 +452,7 @@ def gerar_id(resultado):
     return hashlib.md5(chave.encode()).hexdigest()
 
 def adicionar_posicoes(resultados):
-    """Adiciona posições/colocações aos resultados baseado na ordem dentro de cada grupo (loteria + horário)"""
+    """Adiciona posições/colocações e estados aos resultados baseado na ordem dentro de cada grupo (loteria + horário)"""
     # Agrupar por loteria e horário
     grupos = {}
     for resultado in resultados:
@@ -458,13 +461,16 @@ def adicionar_posicoes(resultados):
             grupos[chave] = []
         grupos[chave].append(resultado)
     
-    # Adicionar posições dentro de cada grupo
+    # Adicionar posições e estados dentro de cada grupo
     resultados_com_posicao = []
     for chave, grupo in grupos.items():
         # Ordenar por timestamp ou manter ordem original
         for idx, resultado in enumerate(grupo, start=1):
             resultado['posicao'] = idx
             resultado['colocacao'] = f"{idx}°"
+            # Adicionar estado se não existir
+            if 'estado' not in resultado:
+                resultado['estado'] = identificar_estado(resultado.get('loteria', ''))
             resultados_com_posicao.append(resultado)
     
     return resultados_com_posicao
