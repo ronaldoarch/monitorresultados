@@ -163,10 +163,12 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                             
                             # Validar se é um resultado válido (número de 3-4 dígitos e animal conhecido)
                             if re.match(r'^\d{3,4}$', numero) and len(animal) > 2:
+                                estado = identificar_estado(loteria_nome)
                                 resultados.append({
                                     'numero': numero,
                                     'animal': animal,
                                     'loteria': loteria_nome,
+                                    'estado': estado,
                                     'horario': horario,
                                     'posicao': posicao,
                                     'colocacao': f"{posicao}°",
@@ -194,10 +196,12 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                 horario = horario_match.group(1) if horario_match else None
                 
                 posicao_h4 += 1
+                estado = identificar_estado(loteria_nome)
                 resultados.append({
                     'numero': numero,
                     'animal': animal,
                     'loteria': loteria_nome,
+                    'estado': estado,
                     'horario': horario,
                     'posicao': posicao_h4,
                     'colocacao': f"{posicao_h4}°",
@@ -239,10 +243,12 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                         horario = horario_match.group(1) if horario_match else None
                         
                         posicao_fallback += 1
+                        estado = identificar_estado(loteria_nome)
                         resultados.append({
                             'numero': numero,
                             'animal': animal,
                             'loteria': loteria_nome,
+                            'estado': estado,
                             'horario': horario,
                             'posicao': posicao_fallback,
                             'colocacao': f"{posicao_fallback}°",
@@ -310,11 +316,14 @@ def extrair_resultados_principal():
                     'url_origem': URL_PRINCIPAL
                 })
         
-        # Adicionar posições baseadas na ordem dentro de cada grupo
+        # Adicionar posições e estados baseadas na ordem dentro de cada grupo
         for chave, grupo_resultados in resultados_por_grupo.items():
             for idx, resultado in enumerate(grupo_resultados, start=1):
                 resultado['posicao'] = idx
                 resultado['colocacao'] = f"{idx}°"
+                # Adicionar estado se não existir
+                if 'estado' not in resultado:
+                    resultado['estado'] = identificar_estado(resultado.get('loteria', ''))
                 resultados.append(resultado)
     except Exception as e:
         logger.error(f"Erro ao extrair da página principal: {e}")

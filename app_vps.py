@@ -100,8 +100,14 @@ def api_resultados():
         try:
             resultado = processar_resultados_via_php()
             if resultado.get('sucesso'):
+                resultados = resultado.get('resultados', [])
+                # Adicionar estado se não existir
+                from monitor_selenium import identificar_estado
+                for r in resultados:
+                    if 'estado' not in r:
+                        r['estado'] = identificar_estado(r.get('loteria', ''))
                 return jsonify({
-                    'resultados': resultado.get('resultados', []),
+                    'resultados': resultados,
                     'summary': resultado.get('summary', {}),
                     'ultima_verificacao': datetime.now().isoformat()
                 })
@@ -111,12 +117,92 @@ def api_resultados():
     # Fallback para método original
     try:
         dados = carregar_resultados()
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in dados.get('resultados', []):
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
         return jsonify(dados)
     except Exception as e:
         return jsonify({
             'resultados': [],
             'erro': str(e),
             'ultima_verificacao': None
+        }), 500
+
+@app.route('/api/resultados/por-estado')
+def api_resultados_por_estado():
+    """API para retornar resultados agrupados por estado"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in resultados:
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
+        
+        # Agrupar por estado
+        por_estado = {}
+        for r in resultados:
+            estado = r.get('estado', 'BR')
+            if estado not in por_estado:
+                por_estado[estado] = []
+            por_estado[estado].append(r)
+        
+        # Estatísticas
+        stats = {estado: len(grupo) for estado, grupo in por_estado.items()}
+        
+        return jsonify({
+            'por_estado': por_estado,
+            'estatisticas': stats,
+            'total_resultados': len(resultados),
+            'total_estados': len(por_estado),
+            'ultima_verificacao': dados.get('ultima_verificacao')
+        })
+    except Exception as e:
+        return jsonify({
+            'por_estado': {},
+            'erro': str(e)
+        }), 500
+
+@app.route('/api/resultados/estado/<estado>')
+def api_resultados_estado(estado):
+    """API para retornar resultados de um estado específico"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in resultados:
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
+        
+        # Filtrar por estado
+        resultados_estado = [r for r in resultados if r.get('estado', '').upper() == estado.upper()]
+        
+        # Agrupar por loteria e horário
+        por_loteria = {}
+        for r in resultados_estado:
+            chave = f"{r.get('loteria', '?')}_{r.get('horario', '?')}"
+            if chave not in por_loteria:
+                por_loteria[chave] = []
+            por_loteria[chave].append(r)
+        
+        return jsonify({
+            'estado': estado.upper(),
+            'resultados': resultados_estado,
+            'por_loteria': por_loteria,
+            'total': len(resultados_estado),
+            'loterias': len(por_loteria)
+        })
+    except Exception as e:
+        return jsonify({
+            'estado': estado.upper(),
+            'resultados': [],
+            'erro': str(e)
         }), 500
 
 @app.route('/api/resultados/processar', methods=['POST'])
