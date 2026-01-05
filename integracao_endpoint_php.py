@@ -19,7 +19,9 @@ CORS(app)
 
 # URL do endpoint PHP do painel
 # Configure aqui ou via variável de ambiente ENDPOINT_PHP
-ENDPOINT_PHP = os.getenv('ENDPOINT_PHP', 'https://lotbicho.com/backend/scraper/processar-resultados-completo.php')
+def get_endpoint_php():
+    """Retorna URL do endpoint PHP"""
+    return os.getenv('ENDPOINT_PHP', 'https://lotbicho.com/backend/scraper/processar-resultados-completo.php')
 
 def processar_resultados_via_php():
     """
@@ -31,9 +33,10 @@ def processar_resultados_via_php():
     - Retorna resultados formatados
     """
     try:
-        print(f"🔄 Chamando endpoint PHP: {ENDPOINT_PHP}")
+        endpoint = get_endpoint_php()
+        print(f"🔄 Chamando endpoint PHP: {endpoint}")
         
-        response = requests.post(ENDPOINT_PHP, timeout=300)
+        response = requests.post(endpoint, timeout=300)
         response.raise_for_status()
         
         data = response.json()
@@ -228,16 +231,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Configurar endpoint PHP se fornecido
-    global ENDPOINT_PHP
     if args.endpoint_php:
-        ENDPOINT_PHP = args.endpoint_php
+        # Atualizar variável de ambiente
+        os.environ['ENDPOINT_PHP'] = args.endpoint_php
     
     # Iniciar processamento automático se solicitado
     if args.auto:
         iniciar_processamento_automatico(args.intervalo)
     
     print(f"🚀 Servidor iniciando em http://{args.host}:{args.port}")
-    print(f"📡 Endpoint PHP: {ENDPOINT_PHP}")
+    print(f"📡 Endpoint PHP: {get_endpoint_php()}")
     
     app.run(host=args.host, port=args.port, debug=False)
 
