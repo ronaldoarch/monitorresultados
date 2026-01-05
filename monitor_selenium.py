@@ -62,6 +62,60 @@ URLS_ESPECIFICAS = {
 # URL principal (HTML estático)
 URL_PRINCIPAL = "https://bichocerto.com/resultados/"
 
+# Mapeamento de loterias para estados
+MAPEAMENTO_ESTADO = {
+    "PT Rio de Janeiro": "RJ",
+    "PT-SP/Bandeirantes": "SP",
+    "PT Bahia": "BA",
+    "PT Paraiba/Lotep": "PB",
+    "Look Goiás": "GO",
+    "Lotece": "CE",
+    "Maluca Bahia": "BA",
+    "Loteria Nacional": "BR",  # Nacional
+    "Loteria Federal": "BR",   # Nacional
+    "Maluquinha RJ": "RJ",
+    "PT Paraiba": "PB",
+    "PT Goiás": "GO",
+    "PT Ceará": "CE",
+    "PT Minas Gerais": "MG",
+    "PT Paraná": "PR",
+    "PT Santa Catarina": "SC",
+    "PT Rio Grande do Sul": "RS"
+}
+
+def identificar_estado(loteria):
+    """Identifica o estado baseado no nome da loteria"""
+    # Buscar correspondência exata
+    if loteria in MAPEAMENTO_ESTADO:
+        return MAPEAMENTO_ESTADO[loteria]
+    
+    # Buscar por palavras-chave
+    loteria_upper = loteria.upper()
+    if "RIO DE JANEIRO" in loteria_upper or "RJ" in loteria_upper:
+        return "RJ"
+    elif "SÃO PAULO" in loteria_upper or "SP" in loteria_upper or "BANDEIRANTES" in loteria_upper:
+        return "SP"
+    elif "BAHIA" in loteria_upper or "BA" in loteria_upper:
+        return "BA"
+    elif "PARAIBA" in loteria_upper or "PARAÍBA" in loteria_upper or "PB" in loteria_upper or "LOTEP" in loteria_upper:
+        return "PB"
+    elif "GOIÁS" in loteria_upper or "GOIAS" in loteria_upper or "GO" in loteria_upper or "LOOK" in loteria_upper:
+        return "GO"
+    elif "CEARÁ" in loteria_upper or "CEARA" in loteria_upper or "CE" in loteria_upper or "LOTECE" in loteria_upper:
+        return "CE"
+    elif "MINAS" in loteria_upper or "MG" in loteria_upper:
+        return "MG"
+    elif "PARANÁ" in loteria_upper or "PARANA" in loteria_upper or "PR" in loteria_upper:
+        return "PR"
+    elif "SANTA CATARINA" in loteria_upper or "SC" in loteria_upper:
+        return "SC"
+    elif "RIO GRANDE DO SUL" in loteria_upper or "RS" in loteria_upper:
+        return "RS"
+    elif "NACIONAL" in loteria_upper or "FEDERAL" in loteria_upper:
+        return "BR"
+    
+    return "BR"  # Default: Brasil (nacional)
+
 def criar_driver():
     """Cria e configura o driver do Selenium"""
     options = Options()
@@ -305,10 +359,12 @@ def extrair_resultados_principal():
                 if chave_grupo not in resultados_por_grupo:
                     resultados_por_grupo[chave_grupo] = []
                 
+                estado = identificar_estado(loteria)
                 resultados_por_grupo[chave_grupo].append({
                     'numero': numero,
                     'animal': animal,
                     'loteria': loteria,
+                    'estado': estado,
                     'horario': horario,
                     'texto_completo': texto,
                     'timestamp': datetime.now().isoformat(),
@@ -321,7 +377,7 @@ def extrair_resultados_principal():
             for idx, resultado in enumerate(grupo_resultados, start=1):
                 resultado['posicao'] = idx
                 resultado['colocacao'] = f"{idx}°"
-                # Adicionar estado se não existir
+                # Garantir que estado existe
                 if 'estado' not in resultado:
                     resultado['estado'] = identificar_estado(resultado.get('loteria', ''))
                 resultados.append(resultado)
