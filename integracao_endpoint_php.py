@@ -5,6 +5,7 @@ Integração com Endpoint PHP do Painel
 Chama o endpoint que faz busca, salvamento, sincronização e liquidação
 """
 
+import os
 import requests
 import time
 import schedule
