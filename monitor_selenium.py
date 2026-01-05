@@ -352,11 +352,20 @@ def identificar_loteria_por_contexto(texto):
     return "Desconhecida"
 
 def carregar_resultados(arquivo='resultados.json'):
-    """Carrega resultados salvos"""
+    """Carrega resultados salvos e adiciona posições se não existirem"""
     if os.path.exists(arquivo):
         try:
             with open(arquivo, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                dados = json.load(f)
+                # Adicionar posições se não existirem
+                if 'resultados' in dados:
+                    # Verificar se algum resultado não tem posição
+                    precisa_posicao = any('posicao' not in r for r in dados['resultados'])
+                    if precisa_posicao:
+                        dados['resultados'] = adicionar_posicoes(dados['resultados'])
+                        # Salvar com posições
+                        salvar_resultados(dados, arquivo)
+                return dados
         except:
             return {'resultados': [], 'ultima_verificacao': None}
     return {'resultados': [], 'ultima_verificacao': None}
