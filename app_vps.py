@@ -31,7 +31,20 @@ logger = logging.getLogger(__name__)
 
 # Importar monitor
 try:
+    # Importar monitor e integração PHP
+try:
     from monitor_selenium import verificar, carregar_resultados
+except ImportError:
+    verificar = None
+    carregar_resultados = lambda: {'resultados': [], 'ultima_verificacao': None}
+
+# Importar integração com endpoint PHP (opcional)
+try:
+    from integracao_endpoint_php import processar_resultados_via_php
+    INTEGRACAO_PHP_DISPONIVEL = True
+except ImportError:
+    INTEGRACAO_PHP_DISPONIVEL = False
+    processar_resultados_via_php = None
 except ImportError:
     print("⚠️  Monitor não encontrado. API funcionará, mas monitor não rodará.")
     verificar = None
@@ -87,6 +100,20 @@ def index():
 @app.route('/api/resultados')
 def api_resultados():
     """API para retornar resultados"""
+    # Se integração PHP disponível, usar ela
+    if INTEGRACAO_PHP_DISPONIVEL and processar_resultados_via_php:
+        try:
+            resultado = processar_resultados_via_php()
+            if resultado.get('sucesso'):
+                return jsonify({
+                    'resultados': resultado.get('resultados', []),
+                    'summary': resultado.get('summary', {}),
+                    'ultima_verificacao': datetime.now().isoformat()
+                })
+        except Exception as e:
+            logger.warning(f"Erro ao processar via PHP: {e}")
+    
+    # Fallback para método original
     try:
         dados = carregar_resultados()
         return jsonify(dados)
@@ -95,6 +122,27 @@ def api_resultados():
             'resultados': [],
             'erro': str(e),
             'ultima_verificacao': None
+        }), 500
+
+@app.route('/api/resultados/processar', methods=['POST'])
+def api_processar_resultados():
+    """Força processamento de resultados"""
+    if INTEGRACAO_PHP_DISPONIVEL and processar_resultados_via_php:
+        try:
+            resultado = processar_resultados_via_php()
+            if resultado.get('sucesso'):
+                return jsonify(resultado)
+            else:
+                return jsonify(resultado), 500
+        except Exception as e:
+            return jsonify({
+                'sucesso': False,
+                'erro': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'sucesso': False,
+            'erro': 'Integração PHP não disponível'
         }), 500
 
 @app.route('/api/status')

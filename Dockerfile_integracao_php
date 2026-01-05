@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar arquivos
+COPY integracao_endpoint_php.py .
+COPY requirements_apostas.txt requirements.txt
+
+# Instalar dependências Python
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Expor porta
+EXPOSE 8000
+
+# Variáveis de ambiente (podem ser sobrescritas no Coolify)
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_ENV=production
+
+# Comando de start - usa variável de ambiente ENDPOINT_PHP
+CMD ["python3", "integracao_endpoint_php.py", "--auto", "--intervalo", "5", "--port", "8000"]
+
