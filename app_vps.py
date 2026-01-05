@@ -29,12 +29,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Importar monitor
-try:
-    # Importar monitor e integração PHP
+# Importar monitor e integração PHP
 try:
     from monitor_selenium import verificar, carregar_resultados
 except ImportError:
+    print("⚠️  Monitor não encontrado. API funcionará, mas monitor não rodará.")
     verificar = None
     carregar_resultados = lambda: {'resultados': [], 'ultima_verificacao': None}
 
@@ -45,10 +44,6 @@ try:
 except ImportError:
     INTEGRACAO_PHP_DISPONIVEL = False
     processar_resultados_via_php = None
-except ImportError:
-    print("⚠️  Monitor não encontrado. API funcionará, mas monitor não rodará.")
-    verificar = None
-    carregar_resultados = lambda: {'resultados': [], 'ultima_verificacao': None}
 
 # Variável global para controlar monitor
 monitor_rodando = False
