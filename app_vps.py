@@ -205,6 +205,186 @@ def api_resultados_estado(estado):
             'erro': str(e)
         }), 500
 
+@app.route('/api/resultados/por-data')
+def api_resultados_por_data():
+    """API para retornar resultados agrupados por data"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in resultados:
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
+        
+        # Extrair data de cada resultado
+        def extrair_data(resultado):
+            # Tentar data_extração primeiro (formato DD/MM/YYYY)
+            if 'data_extração' in resultado and resultado['data_extração']:
+                return resultado['data_extração']
+            # Tentar timestamp (formato ISO)
+            if 'timestamp' in resultado and resultado['timestamp']:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(resultado['timestamp'].replace('Z', '+00:00'))
+                    return dt.strftime('%d/%m/%Y')
+                except:
+                    pass
+            # Fallback: data atual
+            from datetime import datetime
+            return datetime.now().strftime('%d/%m/%Y')
+        
+        # Agrupar por data
+        por_data = {}
+        for r in resultados:
+            data = extrair_data(r)
+            if data not in por_data:
+                por_data[data] = []
+            por_data[data].append(r)
+        
+        # Estatísticas
+        stats = {data: len(grupo) for data, grupo in por_data.items()}
+        
+        return jsonify({
+            'por_data': por_data,
+            'estatisticas': stats,
+            'total_resultados': len(resultados),
+            'total_datas': len(por_data),
+            'ultima_verificacao': dados.get('ultima_verificacao')
+        })
+    except Exception as e:
+        return jsonify({
+            'por_data': {},
+            'erro': str(e)
+        }), 500
+
+@app.route('/api/resultados/data/<data>')
+def api_resultados_data(data):
+    """API para retornar resultados de uma data específica (formato: DD-MM-YYYY ou DD/MM/YYYY)"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Normalizar formato da data (aceitar DD-MM-YYYY ou DD/MM/YYYY)
+        data_normalizada = data.replace('-', '/')
+        
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in resultados:
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
+        
+        # Função para extrair data do resultado
+        def extrair_data(resultado):
+            if 'data_extração' in resultado and resultado['data_extração']:
+                return resultado['data_extração']
+            if 'timestamp' in resultado and resultado['timestamp']:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(resultado['timestamp'].replace('Z', '+00:00'))
+                    return dt.strftime('%d/%m/%Y')
+                except:
+                    pass
+            from datetime import datetime
+            return datetime.now().strftime('%d/%m/%Y')
+        
+        # Filtrar por data
+        resultados_data = [r for r in resultados if extrair_data(r) == data_normalizada]
+        
+        # Agrupar por estado
+        por_estado = {}
+        for r in resultados_data:
+            estado = r.get('estado', 'BR')
+            if estado not in por_estado:
+                por_estado[estado] = []
+            por_estado[estado].append(r)
+        
+        # Agrupar por loteria e horário
+        por_loteria = {}
+        for r in resultados_data:
+            chave = f"{r.get('loteria', '?')}_{r.get('horario', '?')}"
+            if chave not in por_loteria:
+                por_loteria[chave] = []
+            por_loteria[chave].append(r)
+        
+        return jsonify({
+            'data': data_normalizada,
+            'resultados': resultados_data,
+            'por_estado': por_estado,
+            'por_loteria': por_loteria,
+            'total': len(resultados_data),
+            'estados': len(por_estado),
+            'loterias': len(por_loteria)
+        })
+    except Exception as e:
+        return jsonify({
+            'data': data,
+            'resultados': [],
+            'erro': str(e)
+        }), 500
+
+@app.route('/api/resultados/estado/<estado>/data/<data>')
+def api_resultados_estado_data(estado, data):
+    """API para retornar resultados de um estado e data específicos"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Normalizar formato da data
+        data_normalizada = data.replace('-', '/')
+        
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in resultados:
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
+        
+        # Função para extrair data do resultado
+        def extrair_data(resultado):
+            if 'data_extração' in resultado and resultado['data_extração']:
+                return resultado['data_extração']
+            if 'timestamp' in resultado and resultado['timestamp']:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(resultado['timestamp'].replace('Z', '+00:00'))
+                    return dt.strftime('%d/%m/%Y')
+                except:
+                    pass
+            from datetime import datetime
+            return datetime.now().strftime('%d/%m/%Y')
+        
+        # Filtrar por estado e data
+        resultados_filtrados = [
+            r for r in resultados 
+            if r.get('estado', '').upper() == estado.upper() 
+            and extrair_data(r) == data_normalizada
+        ]
+        
+        # Agrupar por loteria e horário
+        por_loteria = {}
+        for r in resultados_filtrados:
+            chave = f"{r.get('loteria', '?')}_{r.get('horario', '?')}"
+            if chave not in por_loteria:
+                por_loteria[chave] = []
+            por_loteria[chave].append(r)
+        
+        return jsonify({
+            'estado': estado.upper(),
+            'data': data_normalizada,
+            'resultados': resultados_filtrados,
+            'por_loteria': por_loteria,
+            'total': len(resultados_filtrados),
+            'loterias': len(por_loteria)
+        })
+    except Exception as e:
+        return jsonify({
+            'estado': estado.upper(),
+            'data': data,
+            'resultados': [],
+            'erro': str(e)
+        }), 500
+
 @app.route('/api/resultados/processar', methods=['POST'])
 def api_processar_resultados():
     """Força processamento de resultados"""
