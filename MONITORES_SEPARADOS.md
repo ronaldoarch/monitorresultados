@@ -45,17 +45,17 @@ https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/
 ## 🔵 Monitor Deu no Poste
 
 ### Arquivo: `app_deunoposte.py`
-### Porta padrão: `8001`
+### Porta padrão: `8081`
 ### Fonte: `deunoposte.com.br`
 
 ### Como Iniciar:
 
 ```bash
 # Com monitor automático (verifica a cada 5 minutos)
-python3 app_deunoposte.py --monitor --intervalo 300 --port 8001
+python3 app_deunoposte.py --monitor --intervalo 300 --port 8081
 
 # Sem monitor (apenas API)
-python3 app_deunoposte.py --port 8001
+python3 app_deunoposte.py --port 8081
 ```
 
 ### Endpoints:
@@ -100,8 +100,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY app_deunoposte.py monitor_deunoposte.py .
-EXPOSE 8001
-CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "2", "app_deunoposte:app"]
+EXPOSE 8081
+CMD ["gunicorn", "--bind", "0.0.0.0:8081", "--workers", "2", "app_deunoposte:app"]
 ```
 
 ### Opção 2: Mesmo Servidor, Portas Diferentes
@@ -111,7 +111,7 @@ CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "2", "app_deunoposte:app
 python3 app_vps.py --monitor --intervalo 60 --port 8000
 
 # Terminal 2 - Deu no Poste
-python3 app_deunoposte.py --monitor --intervalo 300 --port 8001
+python3 app_deunoposte.py --monitor --intervalo 300 --port 8081
 ```
 
 ### Opção 3: Systemd Services
@@ -143,7 +143,7 @@ After=network.target
 Type=simple
 User=www-data
 WorkingDirectory=/opt/monitor
-ExecStart=/usr/bin/python3 app_deunoposte.py --monitor --intervalo 300 --port 8001
+ExecStart=/usr/bin/python3 app_deunoposte.py --monitor --intervalo 300 --port 8081
 Restart=always
 
 [Install]
@@ -165,7 +165,7 @@ sudo systemctl start monitor-deunoposte
 | Característica | Bicho Certo | Deu no Poste |
 |---------------|-------------|--------------|
 | **Arquivo** | `app_vps.py` | `app_deunoposte.py` |
-| **Porta** | 8000 | 8001 |
+| **Porta** | 8000 | 8081 |
 | **Fonte** | bichocerto.com | deunoposte.com.br |
 | **Tecnologia** | Selenium | Requests + BeautifulSoup |
 | **Intervalo padrão** | 60s | 300s (5 min) |
@@ -184,9 +184,9 @@ sudo systemctl start monitor-deunoposte
 
 ### Projeto 2: Deu no Poste
 - **Nome**: `monitor-deunoposte`
-- **Port**: `8001`
+- **Port**: `8081`
 - **Build**: Criar novo Dockerfile
-- **Start**: `gunicorn --bind 0.0.0.0:8001 app_deunoposte:app`
+- **Start**: `gunicorn --bind 0.0.0.0:8081 app_deunoposte:app`
 
 ---
 
@@ -199,7 +199,7 @@ curl https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados
 
 ### Acessar Resultados do Deu no Poste:
 ```bash
-curl http://seu-servidor:8001/api/resultados
+curl http://seu-servidor:8081/api/resultados
 ```
 
 ### Combinar Resultados (se necessário):
@@ -207,7 +207,7 @@ curl http://seu-servidor:8001/api/resultados
 // No frontend
 const [bichocerto, deunoposte] = await Promise.all([
   fetch('https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'),
-  fetch('http://seu-servidor:8001/api/resultados')
+  fetch('http://seu-servidor:8081/api/resultados')
 ]);
 
 const todos = [

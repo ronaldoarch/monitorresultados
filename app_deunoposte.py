@@ -384,7 +384,7 @@ def resultados_json():
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--port', type=int, default=8001, help='Porta do servidor (padrão: 8001)')
+    parser.add_argument('--port', type=int, default=8081, help='Porta do servidor (padrão: 8081)')
     parser.add_argument('--host', default='0.0.0.0', help='Host (0.0.0.0 para VPS)')
     parser.add_argument('--monitor', action='store_true', help='Iniciar monitor automaticamente')
     parser.add_argument('--intervalo', type=int, default=300, help='Intervalo do monitor em segundos (padrão: 300 = 5 minutos)')
