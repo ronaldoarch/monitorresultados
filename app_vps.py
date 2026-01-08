@@ -481,11 +481,33 @@ def api_processar_resultados():
 def api_status():
     """Status do sistema"""
     dados = carregar_resultados()
+    
+    # Verificar se arquivo do Deu no Poste existe
+    deunoposte_disponivel = False
+    deunoposte_total = 0
+    if MONITOR_DEUNOPOSTE_DISPONIVEL:
+        try:
+            if os.path.exists('resultados_deunoposte.json'):
+                with open('resultados_deunoposte.json', 'r', encoding='utf-8') as f:
+                    dados_deunoposte = json.load(f)
+                    deunoposte_total = dados_deunoposte.get('total_resultados', 0)
+                    deunoposte_disponivel = True
+        except:
+            pass
+    
     return jsonify({
         'monitor_rodando': monitor_rodando,
         'total_resultados': len(dados.get('resultados', [])),
         'ultima_verificacao': dados.get('ultima_verificacao'),
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'monitores': {
+            'bichocerto': verificar is not None,
+            'deunoposte': {
+                'disponivel': MONITOR_DEUNOPOSTE_DISPONIVEL,
+                'ativo': deunoposte_disponivel,
+                'total_resultados': deunoposte_total
+            }
+        }
     })
 
 @app.route('/api/verificar-agora', methods=['POST'])
