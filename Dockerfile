@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copiar código da aplicação
 COPY app_vps.py .
 COPY monitor_selenium.py .
+COPY monitor_deunoposte.py .
 COPY integracao_endpoint_php.py .
 COPY dashboard_mini.html .
 COPY gunicorn_config.py .

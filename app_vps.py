@@ -42,8 +42,13 @@ try:
     from monitor_deunoposte import MonitorDeuNoPoste
     monitor_deunoposte = MonitorDeuNoPoste()
     MONITOR_DEUNOPOSTE_DISPONIVEL = True
-except ImportError:
-    print("⚠️  Monitor Deu no Poste não encontrado.")
+    logger.info("✅ Monitor Deu no Poste carregado com sucesso")
+except ImportError as e:
+    logger.warning(f"⚠️  Monitor Deu no Poste não encontrado: {e}")
+    monitor_deunoposte = None
+    MONITOR_DEUNOPOSTE_DISPONIVEL = False
+except Exception as e:
+    logger.error(f"❌ Erro ao inicializar Monitor Deu no Poste: {e}")
     monitor_deunoposte = None
     MONITOR_DEUNOPOSTE_DISPONIVEL = False
 
@@ -78,13 +83,19 @@ def monitor_loop(intervalo=60):
             # Monitor Deu no Poste
             if MONITOR_DEUNOPOSTE_DISPONIVEL and monitor_deunoposte:
                 try:
+                    logger.info("🔍 Iniciando monitoramento Deu no Poste...")
                     resultados_deunoposte = monitor_deunoposte.monitorar_todos()
                     if resultados_deunoposte:
                         # Salvar resultados do Deu no Poste
                         monitor_deunoposte.salvar_resultados(resultados_deunoposte, "resultados_deunoposte.json")
-                        print(f"✅ Deu no Poste: {len(resultados_deunoposte)} resultados coletados!")
+                        logger.info(f"✅ Deu no Poste: {len(resultados_deunoposte)} resultados coletados!")
+                    else:
+                        logger.info("⚠️  Deu no Poste: Nenhum resultado encontrado")
                 except Exception as e:
-                    print(f"❌ Erro no monitor Deu no Poste: {e}")
+                    logger.error(f"❌ Erro no monitor Deu no Poste: {e}", exc_info=True)
+            else:
+                if not MONITOR_DEUNOPOSTE_DISPONIVEL:
+                    logger.debug("ℹ️  Monitor Deu no Poste não disponível")
                     
         except Exception as e:
             print(f"❌ Erro no monitor: {e}")
