@@ -75,7 +75,7 @@ def monitor_loop(intervalo=300):
 
 @app.route('/')
 def index():
-    """Dashboard principal"""
+    """Dashboard principal com visualização de resultados"""
     return """
     <html>
     <head>
@@ -84,7 +84,7 @@ def index():
         <style>
             body {
                 font-family: Arial, sans-serif;
-                max-width: 1200px;
+                max-width: 1400px;
                 margin: 0 auto;
                 padding: 20px;
                 background: #f5f5f5;
@@ -118,6 +118,7 @@ def index():
                 padding: 20px;
                 border-radius: 8px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
             }
             .endpoint {
                 padding: 10px;
@@ -136,6 +137,65 @@ def index():
             }
             .btn:hover {
                 background: #5568d3;
+            }
+            .resultados-container {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .filtros {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+            .filtro-select {
+                padding: 8px 12px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            .resultados-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 15px;
+            }
+            .resultado-card {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #667eea;
+            }
+            .resultado-numero {
+                font-size: 1.8em;
+                font-weight: bold;
+                color: #667eea;
+                margin-bottom: 5px;
+            }
+            .resultado-info {
+                color: #666;
+                font-size: 0.9em;
+            }
+            .grupo-resultados {
+                margin-bottom: 30px;
+            }
+            .grupo-header {
+                background: #667eea;
+                color: white;
+                padding: 15px;
+                border-radius: 8px 8px 0 0;
+                margin-bottom: 0;
+            }
+            .grupo-content {
+                background: white;
+                padding: 20px;
+                border-radius: 0 0 8px 8px;
+            }
+            .loading {
+                text-align: center;
+                padding: 40px;
+                color: #666;
             }
         </style>
     </head>
@@ -157,6 +217,24 @@ def index():
             <div class="stat-card">
                 <div class="stat-value" id="status-monitor">-</div>
                 <div>Status do Monitor</div>
+            </div>
+        </div>
+        
+        <div class="resultados-container">
+            <h2>📊 Resultados Coletados</h2>
+            
+            <div class="filtros">
+                <select id="filtro-loteria" class="filtro-select" onchange="filtrarResultados()">
+                    <option value="">Todas as Loterias</option>
+                </select>
+                <select id="filtro-data" class="filtro-select" onchange="filtrarResultados()">
+                    <option value="">Todas as Datas</option>
+                </select>
+                <button class="btn" onclick="carregarResultados()">🔄 Atualizar Resultados</button>
+            </div>
+            
+            <div id="resultados-content" class="loading">
+                Carregando resultados...
             </div>
         </div>
         
@@ -191,6 +269,8 @@ def index():
         </div>
         
         <script>
+            let todosResultados = [];
+            
             async function atualizarStatus() {
                 try {
                     const response = await fetch('/api/status');
@@ -212,14 +292,145 @@ def index():
                     const data = await response.json();
                     alert(data.mensagem || 'Verificação concluída!');
                     atualizarStatus();
+                    carregarResultados();
                 } catch (error) {
                     console.error('Erro:', error);
                 }
             }
             
+            async function carregarResultados() {
+                try {
+                    document.getElementById('resultados-content').innerHTML = '<div class="loading">Carregando resultados...</div>';
+                    
+                    const response = await fetch('/api/resultados');
+                    const data = await response.json();
+                    
+                    todosResultados = data.resultados || [];
+                    
+                    atualizarFiltros();
+                    exibirResultados(todosResultados);
+                } catch (error) {
+                    console.error('Erro:', error);
+                    document.getElementById('resultados-content').innerHTML = 
+                        '<div class="loading">Erro ao carregar resultados. Tente novamente.</div>';
+                }
+            }
+            
+            function atualizarFiltros() {
+                // Filtro de loterias
+                const loterias = [...new Set(todosResultados.map(r => r.loteria))].sort();
+                const selectLoteria = document.getElementById('filtro-loteria');
+                selectLoteria.innerHTML = '<option value="">Todas as Loterias</option>';
+                loterias.forEach(loteria => {
+                    const option = document.createElement('option');
+                    option.value = loteria;
+                    option.textContent = loteria;
+                    selectLoteria.appendChild(option);
+                });
+                
+                // Filtro de datas
+                const datas = [...new Set(todosResultados.map(r => r.data || 'Sem data'))].sort().reverse();
+                const selectData = document.getElementById('filtro-data');
+                selectData.innerHTML = '<option value="">Todas as Datas</option>';
+                datas.forEach(data => {
+                    const option = document.createElement('option');
+                    option.value = data;
+                    option.textContent = data;
+                    selectData.appendChild(option);
+                });
+            }
+            
+            function filtrarResultados() {
+                const loteriaFiltro = document.getElementById('filtro-loteria').value;
+                const dataFiltro = document.getElementById('filtro-data').value;
+                
+                let resultadosFiltrados = todosResultados;
+                
+                if (loteriaFiltro) {
+                    resultadosFiltrados = resultadosFiltrados.filter(r => r.loteria === loteriaFiltro);
+                }
+                
+                if (dataFiltro) {
+                    resultadosFiltrados = resultadosFiltrados.filter(r => (r.data || 'Sem data') === dataFiltro);
+                }
+                
+                exibirResultados(resultadosFiltrados);
+            }
+            
+            function exibirResultados(resultados) {
+                const container = document.getElementById('resultados-content');
+                
+                if (resultados.length === 0) {
+                    container.innerHTML = '<div class="loading">Nenhum resultado encontrado.</div>';
+                    return;
+                }
+                
+                // Agrupar por loteria e data
+                const agrupados = {};
+                resultados.forEach(r => {
+                    const chave = `${r.loteria}_${r.data || 'Sem data'}`;
+                    if (!agrupados[chave]) {
+                        agrupados[chave] = {
+                            loteria: r.loteria,
+                            data: r.data || 'Sem data',
+                            resultados: []
+                        };
+                    }
+                    agrupados[chave].resultados.push(r);
+                });
+                
+                // Ordenar grupos
+                const gruposOrdenados = Object.values(agrupados).sort((a, b) => {
+                    if (a.data !== b.data) {
+                        return b.data.localeCompare(a.data);
+                    }
+                    return a.loteria.localeCompare(b.loteria);
+                });
+                
+                let html = '';
+                gruposOrdenados.forEach(grupo => {
+                    html += `
+                        <div class="grupo-resultados">
+                            <div class="grupo-header">
+                                <h3>${grupo.loteria} - ${grupo.data}</h3>
+                                <small>${grupo.resultados.length} resultado(s)</small>
+                            </div>
+                            <div class="grupo-content">
+                                <div class="resultados-grid">
+                    `;
+                    
+                    grupo.resultados.forEach(r => {
+                        const dataFormatada = r.timestamp ? new Date(r.timestamp).toLocaleString('pt-BR') : 'N/A';
+                        html += `
+                            <div class="resultado-card">
+                                <div class="resultado-numero">${r.numero}</div>
+                                <div class="resultado-info">
+                                    <strong>${r.animal}</strong> ${r.grupo ? `(Grupo ${r.grupo})` : ''}<br>
+                                    <small>${r.horario || 'N/A'}</small><br>
+                                    <small>${r.premio || ''}</small><br>
+                                    <small style="color: #999;">${dataFormatada}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            }
+            
             // Atualizar status ao carregar
             atualizarStatus();
-            setInterval(atualizarStatus, 30000); // Atualizar a cada 30 segundos
+            carregarResultados();
+            setInterval(() => {
+                atualizarStatus();
+                carregarResultados();
+            }, 60000); // Atualizar a cada 60 segundos
         </script>
     </body>
     </html>
