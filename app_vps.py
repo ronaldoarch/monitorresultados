@@ -29,13 +29,23 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Importar monitor e integração PHP
+# Importar monitor Bicho Certo e integração PHP
 try:
     from monitor_selenium import verificar, carregar_resultados
 except ImportError:
-    print("⚠️  Monitor não encontrado. API funcionará, mas monitor não rodará.")
+    print("⚠️  Monitor Bicho Certo não encontrado. API funcionará, mas monitor não rodará.")
     verificar = None
     carregar_resultados = lambda: {'resultados': [], 'ultima_verificacao': None}
+
+# Importar monitor Deu no Poste
+try:
+    from monitor_deunoposte import MonitorDeuNoPoste
+    monitor_deunoposte = MonitorDeuNoPoste()
+    MONITOR_DEUNOPOSTE_DISPONIVEL = True
+except ImportError:
+    print("⚠️  Monitor Deu no Poste não encontrado.")
+    monitor_deunoposte = None
+    MONITOR_DEUNOPOSTE_DISPONIVEL = False
 
 # Importar integração com endpoint PHP (opcional)
 try:
@@ -50,18 +60,32 @@ monitor_rodando = False
 monitor_thread = None
 
 def monitor_loop(intervalo=60):
-    """Loop do monitor em background"""
+    """Loop do monitor em background - monitora Bicho Certo e Deu no Poste"""
     global monitor_rodando
     monitor_rodando = True
     
     print(f"🔄 Monitor iniciado (verifica a cada {intervalo}s)")
+    print(f"   📊 Monitorando: Bicho Certo + Deu no Poste")
     
     while monitor_rodando:
         try:
+            # Monitor Bicho Certo
             if verificar:
                 novos = verificar()
                 if novos > 0:
-                    print(f"✅ {novos} novos resultados encontrados!")
+                    print(f"✅ Bicho Certo: {novos} novos resultados encontrados!")
+            
+            # Monitor Deu no Poste
+            if MONITOR_DEUNOPOSTE_DISPONIVEL and monitor_deunoposte:
+                try:
+                    resultados_deunoposte = monitor_deunoposte.monitorar_todos()
+                    if resultados_deunoposte:
+                        # Salvar resultados do Deu no Poste
+                        monitor_deunoposte.salvar_resultados(resultados_deunoposte, "resultados_deunoposte.json")
+                        print(f"✅ Deu no Poste: {len(resultados_deunoposte)} resultados coletados!")
+                except Exception as e:
+                    print(f"❌ Erro no monitor Deu no Poste: {e}")
+                    
         except Exception as e:
             print(f"❌ Erro no monitor: {e}")
         
@@ -94,7 +118,9 @@ def index():
 
 @app.route('/api/resultados')
 def api_resultados():
-    """API para retornar resultados"""
+    """API para retornar resultados - combina Bicho Certo + Deu no Poste"""
+    todos_resultados = []
+    
     # Se integração PHP disponível, usar ela
     if INTEGRACAO_PHP_DISPONIVEL and processar_resultados_via_php:
         try:
@@ -106,29 +132,63 @@ def api_resultados():
                 for r in resultados:
                     if 'estado' not in r:
                         r['estado'] = identificar_estado(r.get('loteria', ''))
-                return jsonify({
-                    'resultados': resultados,
-                    'summary': resultado.get('summary', {}),
-                    'ultima_verificacao': datetime.now().isoformat()
-                })
+                    r['fonte'] = r.get('fonte', 'bichocerto.com')
+                todos_resultados.extend(resultados)
         except Exception as e:
             logger.warning(f"Erro ao processar via PHP: {e}")
     
-    # Fallback para método original
+    # Adicionar resultados do Bicho Certo
     try:
-        dados = carregar_resultados()
-        # Adicionar estado se não existir
+        dados_bichocerto = carregar_resultados()
+        resultados_bichocerto = dados_bichocerto.get('resultados', [])
+        # Adicionar estado e fonte se não existir
         from monitor_selenium import identificar_estado
-        for r in dados.get('resultados', []):
+        for r in resultados_bichocerto:
             if 'estado' not in r:
                 r['estado'] = identificar_estado(r.get('loteria', ''))
-        return jsonify(dados)
+            r['fonte'] = r.get('fonte', 'bichocerto.com')
+        todos_resultados.extend(resultados_bichocerto)
     except Exception as e:
-        return jsonify({
-            'resultados': [],
-            'erro': str(e),
-            'ultima_verificacao': None
-        }), 500
+        logger.warning(f"Erro ao carregar Bicho Certo: {e}")
+    
+    # Adicionar resultados do Deu no Poste
+    if MONITOR_DEUNOPOSTE_DISPONIVEL:
+        try:
+            if os.path.exists('resultados_deunoposte.json'):
+                with open('resultados_deunoposte.json', 'r', encoding='utf-8') as f:
+                    dados_deunoposte = json.load(f)
+                    resultados_deunoposte = dados_deunoposte.get('resultados', [])
+                    # Garantir que todos têm fonte
+                    for r in resultados_deunoposte:
+                        r['fonte'] = r.get('fonte', 'deunoposte.com.br')
+                    todos_resultados.extend(resultados_deunoposte)
+        except Exception as e:
+            logger.warning(f"Erro ao carregar Deu no Poste: {e}")
+    
+    # Remover duplicatas (mesmo número + animal + loteria + horário)
+    resultados_unicos = []
+    vistos = set()
+    for r in todos_resultados:
+        chave = (
+            r.get('numero', ''),
+            r.get('animal', ''),
+            r.get('loteria', ''),
+            r.get('horario', ''),
+            r.get('fonte', '')
+        )
+        if chave not in vistos:
+            vistos.add(chave)
+            resultados_unicos.append(r)
+    
+    return jsonify({
+        'resultados': resultados_unicos,
+        'total_resultados': len(resultados_unicos),
+        'ultima_verificacao': datetime.now().isoformat(),
+        'fontes': {
+            'bichocerto': len([r for r in resultados_unicos if r.get('fonte') == 'bichocerto.com']),
+            'deunoposte': len([r for r in resultados_unicos if r.get('fonte') == 'deunoposte.com.br'])
+        }
+    })
 
 @app.route('/api/resultados/por-estado')
 def api_resultados_por_estado():
@@ -419,22 +479,43 @@ def api_status():
 
 @app.route('/api/verificar-agora', methods=['POST'])
 def verificar_agora():
-    """Força verificação imediata"""
-    if not verificar:
-        return jsonify({'erro': 'Monitor não disponível'}), 500
+    """Força verificação imediata - Bicho Certo + Deu no Poste"""
+    total_novos = 0
+    mensagens = []
     
-    try:
-        novos = verificar()
-        return jsonify({
-            'sucesso': True,
-            'novos_resultados': novos,
-            'mensagem': f'{novos} novos resultados encontrados' if novos > 0 else 'Nenhum resultado novo'
-        })
-    except Exception as e:
-        return jsonify({
-            'sucesso': False,
-            'erro': str(e)
-        }), 500
+    # Verificar Bicho Certo
+    if verificar:
+        try:
+            novos = verificar()
+            total_novos += novos
+            if novos > 0:
+                mensagens.append(f'Bicho Certo: {novos} novos resultados')
+        except Exception as e:
+            mensagens.append(f'Erro no Bicho Certo: {str(e)}')
+    
+    # Verificar Deu no Poste
+    if MONITOR_DEUNOPOSTE_DISPONIVEL and monitor_deunoposte:
+        try:
+            resultados_deunoposte = monitor_deunoposte.monitorar_todos()
+            if resultados_deunoposte:
+                monitor_deunoposte.salvar_resultados(resultados_deunoposte, "resultados_deunoposte.json")
+                total_novos += len(resultados_deunoposte)
+                mensagens.append(f'Deu no Poste: {len(resultados_deunoposte)} resultados coletados')
+        except Exception as e:
+            mensagens.append(f'Erro no Deu no Poste: {str(e)}')
+    
+    if not verificar and not MONITOR_DEUNOPOSTE_DISPONIVEL:
+        return jsonify({'erro': 'Nenhum monitor disponível'}), 500
+    
+    return jsonify({
+        'sucesso': True,
+        'novos_resultados': total_novos,
+        'mensagem': '; '.join(mensagens) if mensagens else 'Nenhum resultado novo',
+        'fontes': {
+            'bichocerto': verificar is not None,
+            'deunoposte': MONITOR_DEUNOPOSTE_DISPONIVEL
+        }
+    })
 
 @app.route('/api/monitor/start', methods=['POST'])
 def monitor_start():
