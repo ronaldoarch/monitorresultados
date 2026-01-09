@@ -181,12 +181,69 @@ class MonitorDeuNoPoste:
         # Se não encontrou, retorna a data atual
         return datetime.now().strftime('%Y-%m-%d')
     
+    def extrair_horario_pagina(self, soup: BeautifulSoup) -> Optional[str]:
+        """Tenta extrair o horário real da página HTML"""
+        try:
+            texto = soup.get_text()
+            
+            # Procura por padrões de horário: "14:00", "14h", "14h30", etc.
+            # Primeiro tenta formato com minutos: 14:30 ou 14h30
+            match = re.search(r'(\d{1,2})[:h](\d{2})', texto)
+            if match:
+                hora = int(match.group(1))
+                minuto = int(match.group(2))
+                if 0 <= hora <= 23 and 0 <= minuto <= 59:
+                    return f"{hora}h{minuto:02d}"
+            
+            # Se não encontrou, tenta apenas hora: 14h ou 14
+            match = re.search(r'(\d{1,2})h\b', texto)
+            if match:
+                hora = int(match.group(1))
+                if 0 <= hora <= 23:
+                    return f"{hora}h"
+            
+            # Procura em headings e títulos (mais confiável)
+            headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'title', 'span', 'div'])
+            for heading in headings:
+                texto_heading = heading.get_text()
+                
+                # Tenta formato com minutos primeiro
+                match = re.search(r'(\d{1,2})[:h](\d{2})', texto_heading)
+                if match:
+                    hora = int(match.group(1))
+                    minuto = int(match.group(2))
+                    if 0 <= hora <= 23 and 0 <= minuto <= 59:
+                        return f"{hora}h{minuto:02d}"
+                
+                # Tenta apenas hora
+                match = re.search(r'(\d{1,2})h\b', texto_heading)
+                if match:
+                    hora = int(match.group(1))
+                    if 0 <= hora <= 23:
+                        return f"{hora}h"
+            
+        except Exception as e:
+            print(f"    ⚠️  Erro ao extrair horário: {e}")
+        
+        return None
+    
     def parse_resultado_tabela(self, soup: BeautifulSoup, loteria: str, horario: str) -> List[Dict]:
         """Extrai resultados de uma tabela HTML"""
         resultados = []
         
         # Tenta extrair a data da página
         data_resultado = self.extrair_data_pagina(soup)
+        
+        # Tenta extrair o horário real da página
+        horario_real = self.extrair_horario_pagina(soup)
+        
+        # Se não encontrou horário na página, usa o horário atual (quando foi encontrado)
+        if not horario_real:
+            agora = datetime.now()
+            horario_real = f"{agora.hour}h{agora.minute:02d}" if agora.minute > 0 else f"{agora.hour}h"
+        
+        # Usa o horário real encontrado, não o da URL
+        horario_resultado = horario_real
         
         # Procura pela tabela de resultados
         tabela = soup.find('table', class_='resultado-tabela')
@@ -226,7 +283,7 @@ class MonitorDeuNoPoste:
                     
                     resultado = {
                         "loteria": loteria,
-                        "horario": horario,
+                        "horario": horario_resultado,  # Usa horário real encontrado, não o da URL
                         "numero": milhar,
                         "animal": animal,
                         "grupo": grupo,
@@ -236,13 +293,7 @@ class MonitorDeuNoPoste:
                         "fonte": "deunoposte.com.br"
                     }
                     
-                    # Filtra apenas resultados de horários que já passaram
-                    if self.horario_ja_passou(horario, data_resultado):
-                        resultados.append(resultado)
-                    else:
-                        # Log apenas em modo debug (comentado para não poluir logs)
-                        # print(f"    ⏭️  Pulando {horario} - ainda não passou")
-                        pass
+                    resultados.append(resultado)
                     
                 except Exception as e:
                     print(f"Erro ao processar linha da tabela: {e}")
@@ -261,14 +312,9 @@ class MonitorDeuNoPoste:
         resultados_principal = self.buscar_resultados_url(url_principal, loteria, "Principal")
         todos_resultados.extend(resultados_principal)
         
-        # Páginas por horário (apenas horários que já passaram)
-        data_atual = datetime.now().strftime('%Y-%m-%d')
+        # Páginas por horário
+        # Nota: Buscamos todos os horários, mas o horário real será extraído da página
         for horario in config['horarios']:
-            # Verifica se o horário já passou antes de buscar
-            if not self.horario_ja_passou(horario, data_atual):
-                print(f"  ⏭️  Pulando {horario} - ainda não passou")
-                continue
-            
             # Formata a URL do horário (formato: /base-url-horario/)
             url_horario = f"{self.BASE_URL}{config['base_url']}-{horario}/"
             
