@@ -111,6 +111,43 @@ class MonitorDeuNoPoste:
         texto = re.sub(r'\s*\(\d+\)\s*', '', texto).strip()
         return texto
     
+    def horario_ja_passou(self, horario: str, data: str = None) -> bool:
+        """Verifica se o horário já passou"""
+        try:
+            # Se não tem data, usa a data atual
+            if not data:
+                data_atual = datetime.now()
+            else:
+                # Converte string de data para datetime
+                data_atual = datetime.strptime(data, '%Y-%m-%d')
+            
+            # Extrai hora e minuto do horário (formato: "14h", "15h40", "9h30")
+            horario_match = re.match(r'(\d{1,2})h(\d{2})?', horario)
+            if not horario_match:
+                # Se não conseguir parsear, assume que já passou (para não filtrar)
+                return True
+            
+            hora = int(horario_match.group(1))
+            minuto = int(horario_match.group(2)) if horario_match.group(2) else 0
+            
+            # Cria datetime do horário do resultado
+            horario_resultado = data_atual.replace(hour=hora, minute=minuto, second=0, microsecond=0)
+            
+            # Se a data do resultado é hoje, compara com horário atual
+            if data_atual.date() == datetime.now().date():
+                return datetime.now() >= horario_resultado
+            # Se a data do resultado é no passado, já passou
+            elif data_atual.date() < datetime.now().date():
+                return True
+            # Se a data do resultado é no futuro, ainda não passou
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"    ⚠️  Erro ao validar horário {horario}: {e}")
+            # Em caso de erro, assume que já passou (para não filtrar resultados válidos)
+            return True
+    
     def extrair_data_pagina(self, soup: BeautifulSoup) -> Optional[str]:
         """Tenta extrair a data da página HTML"""
         try:
@@ -199,7 +236,13 @@ class MonitorDeuNoPoste:
                         "fonte": "deunoposte.com.br"
                     }
                     
-                    resultados.append(resultado)
+                    # Filtra apenas resultados de horários que já passaram
+                    if self.horario_ja_passou(horario, data_resultado):
+                        resultados.append(resultado)
+                    else:
+                        # Log apenas em modo debug (comentado para não poluir logs)
+                        # print(f"    ⏭️  Pulando {horario} - ainda não passou")
+                        pass
                     
                 except Exception as e:
                     print(f"Erro ao processar linha da tabela: {e}")
@@ -218,8 +261,14 @@ class MonitorDeuNoPoste:
         resultados_principal = self.buscar_resultados_url(url_principal, loteria, "Principal")
         todos_resultados.extend(resultados_principal)
         
-        # Páginas por horário
+        # Páginas por horário (apenas horários que já passaram)
+        data_atual = datetime.now().strftime('%Y-%m-%d')
         for horario in config['horarios']:
+            # Verifica se o horário já passou antes de buscar
+            if not self.horario_ja_passou(horario, data_atual):
+                print(f"  ⏭️  Pulando {horario} - ainda não passou")
+                continue
+            
             # Formata a URL do horário (formato: /base-url-horario/)
             url_horario = f"{self.BASE_URL}{config['base_url']}-{horario}/"
             
