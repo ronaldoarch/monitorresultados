@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livro dos Sonhos - Exemplo de Integração</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0d4f1c;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(13, 79, 28, 0.8);
+            border-radius: 10px;
+            border: 2px solid #4ade80;
+        }
+        
+        .header h1 {
+            color: #4ade80;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4ade80;
+            font-weight: 600;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #4ade80;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1em;
+        }
+        
+        input::placeholder,
+        textarea::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #fbbf24;
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            color: #0d4f1c;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 222, 128, 0.5);
+        }
+        
+        .resultado {
+            margin-top: 30px;
+            padding: 30px;
+            background: rgba(13, 79, 28, 0.9);
+            border-radius: 10px;
+            border: 2px solid #4ade80;
+            display: none;
+        }
+        
+        .resultado.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animal-info {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 2px solid #fbbf24;
+        }
+        
+        .animal-nome {
+            font-size: 2.5em;
+            color: #fbbf24;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .animal-grupo {
+            font-size: 1.5em;
+            color: #4ade80;
+            margin-bottom: 10px;
+        }
+        
+        .numeros-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .numero-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #4ade80;
+        }
+        
+        .numero-tipo {
+            font-size: 0.9em;
+            color: #9ca3af;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .numero-valor {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fbbf24;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #d1d5db;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(74, 222, 128, 0.2);
+            border-top: 4px solid #4ade80;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .erro {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #ef4444;
+        }
+        
+        .config {
+            background: rgba(13, 79, 28, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 2px solid #4ade80;
+        }
+        
+        .config input {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📖 Livro dos Sonhos</h1>
+            <p>Exemplo de Integração com API</p>
+        </div>
+        
+        <div class="config">
+            <label for="apiUrl">URL da API:</label>
+            <input 
+                type="text" 
+                id="apiUrl" 
+                value="http://localhost:8082/api/v1"
+                placeholder="http://seu-servidor:8082/api/v1"
+            >
+        </div>
+        
+        <div class="form-group">
+            <label for="sonhoInput">Descreva seu sonho:</label>
+            <textarea 
+                id="sonhoInput" 
+                placeholder="Ex: Sonhei com um leão, Sonhei com dinheiro, Sonhei com água..."
+            ></textarea>
+        </div>
+        
+        <button onclick="interpretar()">🔮 Interpretar Sonho</button>
+        
+        <div id="resultado" class="resultado">
+            <!-- Resultado será inserido aqui -->
+        </div>
+    </div>
+    
+    <script>
+        async function interpretar() {
+            const sonho = document.getElementById('sonhoInput').value.trim();
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            if (!sonho) {
+                alert('Por favor, digite um sonho!');
+                return;
+            }
+            
+            if (!apiUrl) {
+                alert('Por favor, configure a URL da API!');
+                return;
+            }
+            
+            const resultadoDiv = document.getElementById('resultado');
+            resultadoDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Interpretando seu sonho...</div>';
+            resultadoDiv.classList.add('show');
+            
+            try {
+                const response = await fetch(`${apiUrl}/interpretar`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ sonho: sonho })
+                });
+                
+                const data = await response.json();
+                
+                if (data.sucesso && data.encontrado) {
+                    exibirResultado(data.dados);
+                } else {
+                    exibirErro(data.mensagem || 'Sonho não encontrado. Tente descrever de forma mais específica.');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                exibirErro('Erro ao conectar com a API. Verifique se o servidor está rodando e a URL está correta.');
+            }
+        }
+        
+        function exibirResultado(dados) {
+            const resultadoDiv = document.getElementById('resultado');
+            
+            resultadoDiv.innerHTML = `
+                <div class="animal-info">
+                    <div class="animal-nome">${dados.animal}</div>
+                    <div class="animal-grupo">Grupo ${dados.grupo}</div>
+                    <p style="color: #d1d5db; margin-top: 10px;">${dados.significado}</p>
+                </div>
+                
+                <h3 style="color: #4ade80; margin-bottom: 15px;">Números Sugeridos:</h3>
+                <div class="numeros-container">
+                    <div class="numero-card">
+                        <div class="numero-tipo">Grupo</div>
+                        <div class="numero-valor">${dados.numeros.grupo}</div>
+                    </div>
+                    <div class="numero-card">
+                        <div class="numero-tipo">Dezena</div>
+                        <div class="numero-valor">${dados.numeros.dezena}</div>
+                    </div>
+                    <div class="numero-card">
+                        <div class="numero-tipo">Centena</div>
+                        <div class="numero-valor">${dados.numeros.centena}</div>
+                    </div>
+                    <div class="numero-card">
+                        <div class="numero-tipo">Milhar</div>
+                        <div class="numero-valor">${dados.numeros.milhar}</div>
+                    </div>
+                </div>
+                
+                <h3 style="color: #4ade80; margin-top: 20px; margin-bottom: 15px;">Dias Sugeridos:</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    ${dados.sugestoes.dias.slice(0, 5).map(dia => `
+                        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border-left: 4px solid #4ade80;">
+                            <div style="font-weight: bold; color: #4ade80;">${dia.data}</div>
+                            <div style="color: #d1d5db; font-size: 0.9em;">${dia.dia_semana}</div>
+                            <span style="display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.8em; margin-top: 5px; background: ${dia.prioridade === 'alta' ? '#4ade80' : '#fbbf24'}; color: #0d4f1c; font-weight: bold;">
+                                ${dia.prioridade}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        function exibirErro(mensagem) {
+            const resultadoDiv = document.getElementById('resultado');
+            resultadoDiv.innerHTML = `
+                <div class="erro">
+                    <h3>⚠️ ${mensagem}</h3>
+                </div>
+            `;
+        }
+        
+        // Permitir Enter no textarea
+        document.getElementById('sonhoInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                interpretar();
+            }
+        });
+    </script>
+</body>
+</html>
