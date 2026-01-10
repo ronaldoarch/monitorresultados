@@ -14,7 +14,28 @@ from flask_cors import CORS
 from livro_sonhos import LivroSonhos
 
 app = Flask(__name__)
-CORS(app)
+# Configurar CORS para permitir baraodobicho.com.br e localhost para desenvolvimento
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "https://baraodobicho.com.br",
+            "https://www.baraodobicho.com.br",
+            "http://baraodobicho.com.br",
+            "http://www.baraodobicho.com.br",
+            "http://localhost",
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "http://localhost:8000",
+            "http://127.0.0.1",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5000",
+            "http://127.0.0.1:8000"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    }
+})
 
 # Inicializar sistema de interpretação de sonhos
 livro_sonhos = LivroSonhos()
