@@ -16,22 +16,25 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 # Configurar CORS para permitir baraodobicho.com.br e localhost para desenvolvimento
+# Lista de origens permitidas
+ORIGINS_PERMITIDAS = [
+    "https://baraodobicho.com.br",
+    "https://www.baraodobicho.com.br",
+    "http://baraodobicho.com.br",
+    "http://www.baraodobicho.com.br",
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost:8000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:8000"
+]
+
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "https://baraodobicho.com.br",
-            "https://www.baraodobicho.com.br",
-            "http://baraodobicho.com.br",
-            "http://www.baraodobicho.com.br",
-            "http://localhost",
-            "http://localhost:3000",
-            "http://localhost:5000",
-            "http://localhost:8000",
-            "http://127.0.0.1",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:5000",
-            "http://127.0.0.1:8000"
-        ],
+        "origins": ORIGINS_PERMITIDAS,
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": True
