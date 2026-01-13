@@ -307,15 +307,23 @@ def api_resultados_organizados():
             
             organizados[chave_tabela][chave_horario].append(resultado_formatado)
         
-        # Ordenar resultados dentro de cada horário por posição
+        # Ordenar resultados dentro de cada horário por posição e limitar a 7 posições
+        total_resultados_antes = 0
+        total_resultados_depois = 0
+        
         for tabela in organizados:
             for horario in organizados[tabela]:
+                # Ordenar por posição
                 organizados[tabela][horario].sort(key=lambda x: x.get('posicao', 0))
+                # Limitar a 7 posições (1° a 7°)
+                total_resultados_antes += len(organizados[tabela][horario])
+                organizados[tabela][horario] = organizados[tabela][horario][:7]
+                total_resultados_depois += len(organizados[tabela][horario])
         
         # Estatísticas
         total_tabelas = len(organizados)
         total_horarios = sum(len(horarios) for horarios in organizados.values())
-        total_resultados = len(resultados)
+        total_resultados = total_resultados_depois
         
         return jsonify({
             'organizados': organizados,

@@ -87,11 +87,13 @@ Cada resultado contém:
 | `horario` | string | Horário do sorteio (ex: "09:30", "11:30") |
 | `animal` | string | Nome do animal (ex: "Camelo", "Pavão") |
 | `numero` | string | Número de 4 dígitos (ex: "4732") |
-| `posicao` | integer | Posição do resultado (1, 2, 3, 4, 5, 6, 7) |
+| `posicao` | integer | Posição do resultado (1 a 7, limitado) |
 | `colocacao` | string | Colocação formatada (ex: "1°", "2°", "3°") |
 | `estado` | string | Sigla do estado (RJ, SP, BA, etc.) |
 | `data_extracao` | string | Data da extração (DD/MM/YYYY) |
 | `timestamp` | string | Timestamp ISO completo |
+
+**⚠️ Importante:** Cada horário retorna no máximo **7 posições** (1° a 7°), seguindo o padrão oficial das loterias.
 
 ---
 
@@ -235,8 +237,9 @@ organizados
 1. **Organização clara**: Separado por tabela e horário
 2. **Fácil acesso**: Estrutura hierárquica intuitiva
 3. **Ordenado**: Resultados ordenados por posição dentro de cada horário
-4. **Completo**: Todos os campos necessários incluídos
-5. **Estatísticas**: Informações resumidas no topo
+4. **Limitado**: Máximo de 7 posições por horário (1° a 7°)
+5. **Completo**: Todos os campos necessários incluídos
+6. **Estatísticas**: Informações resumidas no topo
 
 ---
 
