@@ -480,6 +480,11 @@ def verificar():
     logger.info(f"Verificando {len(URLS_ESPECIFICAS)} URLs específicas + página principal...")
     
     dados_anteriores = carregar_resultados()
+    # Deduplicar base anterior para evitar acúmulo entre execuções
+    if 'resultados' in dados_anteriores:
+        dados_anteriores['resultados'] = deduplicar_resultados_por_chave(dados_anteriores['resultados'])
+        dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
+        salvar_resultados(dados_anteriores)
     ids_anteriores = {gerar_id(r) for r in dados_anteriores.get('resultados', [])}
     
     todos_resultados = []
@@ -506,6 +511,9 @@ def verificar():
         logger.info("💡 Para verificar URLs específicas, instale ChromeDriver:")
         logger.info("   brew install chromedriver")
     
+    # Remover duplicados entre fontes (mesma loteria, horário e número)
+    todos_resultados = deduplicar_resultados_por_chave(todos_resultados)
+
     # Adicionar posições aos resultados
     todos_resultados = adicionar_posicoes(todos_resultados)
     
