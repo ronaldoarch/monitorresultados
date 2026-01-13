@@ -262,6 +262,78 @@ def api_resultados_por_data():
             'erro': str(e)
         }), 500
 
+@app.route('/api/resultados/organizados')
+def api_resultados_organizados():
+    """API para retornar resultados organizados por tabela (loteria) e horário"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Adicionar estado se não existir
+        from monitor_selenium import identificar_estado
+        for r in resultados:
+            if 'estado' not in r:
+                r['estado'] = identificar_estado(r.get('loteria', ''))
+        
+        # Organizar por tabela (loteria) e horário
+        organizados = {}
+        
+        for r in resultados:
+            loteria = r.get('loteria', 'Desconhecida')
+            horario = r.get('horario', 'N/A')
+            
+            # Criar chave única: loteria + horário
+            chave_tabela = loteria
+            chave_horario = horario
+            
+            # Inicializar estrutura se não existir
+            if chave_tabela not in organizados:
+                organizados[chave_tabela] = {}
+            
+            if chave_horario not in organizados[chave_tabela]:
+                organizados[chave_tabela][chave_horario] = []
+            
+            # Adicionar resultado formatado
+            resultado_formatado = {
+                'horario': horario,
+                'animal': r.get('animal', ''),
+                'numero': r.get('numero', ''),
+                'posicao': r.get('posicao', 0),
+                'colocacao': r.get('colocacao', ''),
+                'estado': r.get('estado', 'BR'),
+                'data_extracao': r.get('data_extração', ''),
+                'timestamp': r.get('timestamp', '')
+            }
+            
+            organizados[chave_tabela][chave_horario].append(resultado_formatado)
+        
+        # Ordenar resultados dentro de cada horário por posição
+        for tabela in organizados:
+            for horario in organizados[tabela]:
+                organizados[tabela][horario].sort(key=lambda x: x.get('posicao', 0))
+        
+        # Estatísticas
+        total_tabelas = len(organizados)
+        total_horarios = sum(len(horarios) for horarios in organizados.values())
+        total_resultados = len(resultados)
+        
+        return jsonify({
+            'organizados': organizados,
+            'estatisticas': {
+                'total_tabelas': total_tabelas,
+                'total_horarios': total_horarios,
+                'total_resultados': total_resultados
+            },
+            'ultima_verificacao': dados.get('ultima_verificacao'),
+            'fonte': 'bichocerto.com'
+        })
+    except Exception as e:
+        logger.error(f"Erro ao organizar resultados: {e}")
+        return jsonify({
+            'organizados': {},
+            'erro': str(e)
+        }), 500
+
 @app.route('/api/resultados/data/<data>')
 def api_resultados_data(data):
     """API para retornar resultados de uma data específica (formato: DD-MM-YYYY ou DD/MM/YYYY)"""
