@@ -497,8 +497,12 @@ def normalizar_loteria(loteria):
     if not loteria:
         return ''
     loteria = str(loteria).strip().upper()
-    # Normalizar variações comuns
-    loteria = loteria.replace('PT RIO DE JANEIRO', 'PT-RJ')
+    # Normalizar variações comuns - fazer antes de outras transformações
+    # Substituir variações de PT Rio de Janeiro
+    if 'RIO DE JANEIRO' in loteria or 'RIO' in loteria:
+        if 'PT' in loteria or 'PPT' in loteria or 'PTM' in loteria or 'PTV' in loteria:
+            return 'PT-RJ'
+    # Outras normalizações
     loteria = loteria.replace('PT-RIO', 'PT-RJ')
     loteria = loteria.replace('PPT-RJ', 'PT-RJ')  # PPT-RJ é variação de PT-RJ
     loteria = loteria.replace('PTM-RJ', 'PT-RJ')
@@ -507,7 +511,10 @@ def normalizar_loteria(loteria):
 
 def deduplicar_resultados_por_chave(resultados):
     """Remove resultados duplicados baseado em (loteria normalizada, horario normalizado, numero)"""
+    total_antes = len(resultados)
     unicos = {}
+    duplicados_removidos = 0
+    
     for r in resultados:
         loteria_norm = normalizar_loteria(r.get('loteria', ''))
         horario_norm = normalizar_horario(r.get('horario', ''))
@@ -520,6 +527,7 @@ def deduplicar_resultados_por_chave(resultados):
         if chave not in unicos:
             unicos[chave] = r
         else:
+            duplicados_removidos += 1
             # Se o novo tem mais campos preenchidos, substituir
             existente = unicos[chave]
             campos_existente = sum(1 for v in existente.values() if v)
@@ -527,7 +535,11 @@ def deduplicar_resultados_por_chave(resultados):
             if campos_novo > campos_existente:
                 unicos[chave] = r
     
-    return list(unicos.values())
+    resultado_final = list(unicos.values())
+    if duplicados_removidos > 0:
+        logger.info(f"🔍 Deduplicação: {total_antes} → {len(resultado_final)} resultados ({duplicados_removidos} duplicados removidos)")
+    
+    return resultado_final
 
 def verificar():
     """Faz verificação em todas as URLs"""
