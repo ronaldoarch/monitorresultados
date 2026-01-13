@@ -424,6 +424,8 @@ def carregar_resultados(arquivo='resultados.json'):
                 dados = json.load(f)
                 # Adicionar posições e estados se não existirem
                 if 'resultados' in dados:
+                    # Sempre deduplicar primeiro
+                    dados['resultados'] = deduplicar_resultados_por_chave(dados['resultados'])
                     # Verificar se algum resultado não tem posição ou estado
                     precisa_atualizacao = any(
                         'posicao' not in r or 'estado' not in r 
@@ -453,10 +455,12 @@ def gerar_id(resultado):
 
 def adicionar_posicoes(resultados):
     """Adiciona posições/colocações e estados aos resultados baseado na ordem dentro de cada grupo (loteria + horário)"""
-    # Agrupar por loteria e horário
+    # Agrupar por loteria normalizada e horário normalizado
     grupos = {}
     for resultado in resultados:
-        chave = f"{resultado.get('loteria', '')}_{resultado.get('horario', '')}"
+        loteria_norm = normalizar_loteria(resultado.get('loteria', ''))
+        horario_norm = normalizar_horario(resultado.get('horario', ''))
+        chave = f"{loteria_norm}_{horario_norm}"
         if chave not in grupos:
             grupos[chave] = []
         grupos[chave].append(resultado)
@@ -475,13 +479,54 @@ def adicionar_posicoes(resultados):
     
     return resultados_com_posicao
 
+def normalizar_horario(horario):
+    """Normaliza formato de horário para comparação"""
+    if not horario:
+        return None
+    # Remover espaços e converter para minúsculas
+    horario = str(horario).strip().lower()
+    # Remover 'h' e ':' para normalizar "09:30", "9:30", "09h30", "9h30" -> "0930"
+    horario = horario.replace('h', '').replace(':', '').replace(' ', '')
+    # Garantir formato HHMM (adicionar zero à esquerda se necessário)
+    if len(horario) == 3:
+        horario = '0' + horario
+    return horario if len(horario) == 4 else None
+
+def normalizar_loteria(loteria):
+    """Normaliza nome da loteria para comparação"""
+    if not loteria:
+        return ''
+    loteria = str(loteria).strip().upper()
+    # Normalizar variações comuns
+    loteria = loteria.replace('PT RIO DE JANEIRO', 'PT-RJ')
+    loteria = loteria.replace('PT-RIO', 'PT-RJ')
+    loteria = loteria.replace('PPT-RJ', 'PT-RJ')  # PPT-RJ é variação de PT-RJ
+    loteria = loteria.replace('PTM-RJ', 'PT-RJ')
+    loteria = loteria.replace('PTV-RJ', 'PT-RJ')
+    return loteria
+
 def deduplicar_resultados_por_chave(resultados):
-    """Remove resultados duplicados baseado em (loteria, horario, numero)"""
+    """Remove resultados duplicados baseado em (loteria normalizada, horario normalizado, numero)"""
     unicos = {}
     for r in resultados:
-        chave = (r.get('loteria', ''), r.get('horario', ''), r.get('numero', ''))
+        loteria_norm = normalizar_loteria(r.get('loteria', ''))
+        horario_norm = normalizar_horario(r.get('horario', ''))
+        numero = str(r.get('numero', '')).strip()
+        
+        # Criar chave única
+        chave = (loteria_norm, horario_norm, numero)
+        
+        # Se já existe, manter o primeiro (ou o que tem mais informações)
         if chave not in unicos:
             unicos[chave] = r
+        else:
+            # Se o novo tem mais campos preenchidos, substituir
+            existente = unicos[chave]
+            campos_existente = sum(1 for v in existente.values() if v)
+            campos_novo = sum(1 for v in r.values() if v)
+            if campos_novo > campos_existente:
+                unicos[chave] = r
+    
     return list(unicos.values())
 
 def verificar():
@@ -532,6 +577,8 @@ def verificar():
     if novos:
         logger.info(f"✓ {len(novos)} novos resultados encontrados!")
         dados_anteriores['resultados'].extend(novos)
+        # Deduplicar antes de adicionar posições
+        dados_anteriores['resultados'] = deduplicar_resultados_por_chave(dados_anteriores['resultados'])
         # Re-adicionar posições a todos os resultados (incluindo antigos)
         dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
         dados_anteriores['ultima_verificacao'] = datetime.now().isoformat()
@@ -542,6 +589,8 @@ def verificar():
         return len(novos)
     
     # Atualizar posições mesmo se não houver novos resultados
+    # Deduplicar antes de adicionar posições
+    dados_anteriores['resultados'] = deduplicar_resultados_por_chave(dados_anteriores['resultados'])
     dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
     dados_anteriores['ultima_verificacao'] = datetime.now().isoformat()
     salvar_resultados(dados_anteriores)
