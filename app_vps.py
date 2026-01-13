@@ -275,14 +275,29 @@ def api_resultados_organizados():
             if 'estado' not in r:
                 r['estado'] = identificar_estado(r.get('loteria', ''))
         
-        # Organizar por tabela (loteria) e horário
+        # Função para extrair data normalizada
+        def extrair_data_normalizada(resultado):
+            if 'data_extração' in resultado and resultado['data_extração']:
+                return resultado['data_extração']
+            if 'timestamp' in resultado and resultado['timestamp']:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(resultado['timestamp'].replace('Z', '+00:00'))
+                    return dt.strftime('%d/%m/%Y')
+                except:
+                    pass
+            from datetime import datetime
+            return datetime.now().strftime('%d/%m/%Y')
+        
+        # Organizar por tabela (loteria), horário e data (sorteio específico)
         organizados = {}
         
         for r in resultados:
             loteria = r.get('loteria', 'Desconhecida')
             horario = r.get('horario', 'N/A')
+            data = extrair_data_normalizada(r)
             
-            # Criar chave única: loteria + horário
+            # Criar chave única: loteria + horário + data (sorteio específico)
             chave_tabela = loteria
             chave_horario = horario
             
@@ -301,32 +316,63 @@ def api_resultados_organizados():
                 'posicao': r.get('posicao', 0),
                 'colocacao': r.get('colocacao', ''),
                 'estado': r.get('estado', 'BR'),
-                'data_extracao': r.get('data_extração', ''),
+                'data_extracao': data,
                 'timestamp': r.get('timestamp', '')
             }
             
             organizados[chave_tabela][chave_horario].append(resultado_formatado)
         
-        # Ordenar resultados dentro de cada horário por posição e limitar a 7 posições
-        total_resultados_antes = 0
-        total_resultados_depois = 0
+        # Agrupar por sorteio (mesma data) e limitar a 7 posições por sorteio
+        organizados_final = {}
         
         for tabela in organizados:
+            organizados_final[tabela] = {}
+            
             for horario in organizados[tabela]:
-                # Ordenar por posição
-                organizados[tabela][horario].sort(key=lambda x: x.get('posicao', 0))
-                # Limitar a 7 posições (1° a 7°)
-                total_resultados_antes += len(organizados[tabela][horario])
-                organizados[tabela][horario] = organizados[tabela][horario][:7]
-                total_resultados_depois += len(organizados[tabela][horario])
+                # Agrupar resultados por data (sorteio)
+                resultados_por_data = {}
+                for resultado in organizados[tabela][horario]:
+                    data = resultado['data_extracao']
+                    if data not in resultados_por_data:
+                        resultados_por_data[data] = []
+                    resultados_por_data[data].append(resultado)
+                
+                # Para cada sorteio (data), ordenar e limitar a 7 posições
+                sorteios_ordenados = []
+                for data, resultados_sorteio in resultados_por_data.items():
+                    # Ordenar por posição
+                    resultados_sorteio.sort(key=lambda x: x.get('posicao', 0))
+                    # Limitar a 7 posições (1° a 7°)
+                    resultados_sorteio = resultados_sorteio[:7]
+                    # Adicionar apenas se tiver resultados válidos (posição 1-7)
+                    if resultados_sorteio and resultados_sorteio[0].get('posicao', 0) <= 7:
+                        sorteios_ordenados.append({
+                            'data': data,
+                            'resultados': resultados_sorteio
+                        })
+                
+                # Se houver apenas um sorteio para este horário, usar formato simples
+                # Se houver múltiplos sorteios, manter separados por data
+                if len(sorteios_ordenados) == 1:
+                    # Formato simples: apenas os resultados do sorteio mais recente
+                    organizados_final[tabela][horario] = sorteios_ordenados[0]['resultados']
+                elif len(sorteios_ordenados) > 1:
+                    # Múltiplos sorteios: usar o mais recente (último da lista ordenada)
+                    # Ordenar por data (mais recente primeiro)
+                    sorteios_ordenados.sort(key=lambda x: x['data'], reverse=True)
+                    organizados_final[tabela][horario] = sorteios_ordenados[0]['resultados']
         
         # Estatísticas
-        total_tabelas = len(organizados)
-        total_horarios = sum(len(horarios) for horarios in organizados.values())
-        total_resultados = total_resultados_depois
+        total_tabelas = len(organizados_final)
+        total_horarios = sum(len(horarios) for horarios in organizados_final.values())
+        total_resultados = sum(
+            len(resultados) 
+            for tabela in organizados_final.values() 
+            for resultados in tabela.values()
+        )
         
         return jsonify({
-            'organizados': organizados,
+            'organizados': organizados_final,
             'estatisticas': {
                 'total_tabelas': total_tabelas,
                 'total_horarios': total_horarios,
