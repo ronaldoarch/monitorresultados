@@ -475,6 +475,15 @@ def adicionar_posicoes(resultados):
     
     return resultados_com_posicao
 
+def deduplicar_resultados_por_chave(resultados):
+    """Remove resultados duplicados baseado em (loteria, horario, numero)"""
+    unicos = {}
+    for r in resultados:
+        chave = (r.get('loteria', ''), r.get('horario', ''), r.get('numero', ''))
+        if chave not in unicos:
+            unicos[chave] = r
+    return list(unicos.values())
+
 def verificar():
     """Faz verificação em todas as URLs"""
     logger.info(f"Verificando {len(URLS_ESPECIFICAS)} URLs específicas + página principal...")
