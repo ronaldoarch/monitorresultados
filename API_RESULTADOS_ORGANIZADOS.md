@@ -93,7 +93,11 @@ Cada resultado contém:
 | `data_extracao` | string | Data da extração (DD/MM/YYYY) |
 | `timestamp` | string | Timestamp ISO completo |
 
-**⚠️ Importante:** Cada horário retorna no máximo **7 posições** (1° a 7°), seguindo o padrão oficial das loterias.
+**⚠️ Importante:** 
+- Cada horário retorna no máximo **7 posições** (1° a 7°), seguindo o padrão oficial das loterias
+- Os resultados são agrupados por **sorteio específico** (mesma tabela + mesmo horário + mesma data)
+- Se houver múltiplos sorteios no mesmo horário (diferentes datas), será retornado apenas o sorteio mais recente
+- Cada grupo contém apenas resultados do mesmo sorteio, garantindo que as posições sejam sequenciais (1° a 7°)
 
 ---
 
