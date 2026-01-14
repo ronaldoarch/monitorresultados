@@ -48,6 +48,29 @@ except ImportError:
 # Variável global para controlar monitor
 monitor_rodando = False
 monitor_thread = None
+monitor_iniciado = False
+
+def iniciar_monitor(intervalo=60):
+    """Inicia o monitor em uma thread separada"""
+    global monitor_thread, monitor_iniciado
+    
+    if monitor_iniciado:
+        logger.warning("⚠️  Monitor já está rodando")
+        return
+    
+    if not verificar:
+        logger.warning("⚠️  Função verificar não disponível. Monitor não será iniciado.")
+        return
+    
+    monitor_thread = threading.Thread(
+        target=monitor_loop,
+        args=(intervalo,),
+        daemon=True,
+        name="MonitorBichoCerto"
+    )
+    monitor_thread.start()
+    monitor_iniciado = True
+    logger.info(f"✅ Monitor Bicho Certo iniciado em thread separada (intervalo: {intervalo}s)")
 
 def monitor_loop(intervalo=60):
     """Loop do monitor em background - apenas Bicho Certo"""
@@ -55,6 +78,15 @@ def monitor_loop(intervalo=60):
     monitor_rodando = True
     
     logger.info(f"🔄 Monitor Bicho Certo iniciado (verifica a cada {intervalo}s)")
+    
+    # Fazer primeira verificação imediatamente
+    try:
+        if verificar:
+            novos = verificar()
+            if novos > 0:
+                logger.info(f"✅ Bicho Certo: {novos} novos resultados encontrados na primeira verificação!")
+    except Exception as e:
+        logger.error(f"❌ Erro na primeira verificação: {e}")
     
     while monitor_rodando:
         try:
@@ -514,6 +546,50 @@ def api_resultados_estado_data(estado, data):
             'erro': str(e)
         }), 500
 
+@app.route('/api/monitor/start', methods=['POST'])
+def api_monitor_start():
+    """Inicia o monitor automaticamente"""
+    try:
+        intervalo = request.json.get('intervalo', 60) if request.is_json else 60
+        iniciar_monitor(intervalo)
+        return jsonify({
+            'sucesso': True,
+            'mensagem': f'Monitor iniciado (intervalo: {intervalo}s)',
+            'monitor_rodando': monitor_rodando
+        })
+    except Exception as e:
+        return jsonify({
+            'sucesso': False,
+            'erro': str(e)
+        }), 500
+
+@app.route('/api/monitor/stop', methods=['POST'])
+def api_monitor_stop():
+    """Para o monitor"""
+    global monitor_rodando, monitor_iniciado
+    try:
+        monitor_rodando = False
+        monitor_iniciado = False
+        return jsonify({
+            'sucesso': True,
+            'mensagem': 'Monitor parado'
+        })
+    except Exception as e:
+        return jsonify({
+            'sucesso': False,
+            'erro': str(e)
+        }), 500
+
+@app.route('/api/monitor/status', methods=['GET'])
+def api_monitor_status():
+    """Status do monitor"""
+    return jsonify({
+        'monitor_rodando': monitor_rodando,
+        'monitor_iniciado': monitor_iniciado,
+        'thread_ativa': monitor_thread.is_alive() if monitor_thread else False,
+        'verificar_disponivel': verificar is not None
+    })
+
 @app.route('/api/resultados/processar', methods=['POST'])
 def api_processar_resultados():
     """Força processamento de resultados"""
@@ -571,41 +647,46 @@ def verificar_agora():
 @app.route('/api/monitor/start', methods=['POST'])
 def monitor_start():
     """Inicia monitor"""
-    global monitor_thread, monitor_rodando
-    
-    if monitor_rodando:
-        return jsonify({'mensagem': 'Monitor já está rodando'}), 400
-    
-    if not verificar:
-        return jsonify({'erro': 'Monitor não disponível'}), 500
-    
-    intervalo = int(request.json.get('intervalo', 60)) if request.json else 60
-    
-    monitor_thread = threading.Thread(target=monitor_loop, args=(intervalo,), daemon=True)
-    monitor_thread.start()
-    
-    return jsonify({
-        'sucesso': True,
-        'mensagem': f'Monitor iniciado (intervalo: {intervalo}s)'
-    })
+    try:
+        intervalo = int(request.json.get('intervalo', 60)) if request.is_json and request.json else 60
+        iniciar_monitor(intervalo)
+        return jsonify({
+            'sucesso': True,
+            'mensagem': f'Monitor iniciado (intervalo: {intervalo}s)',
+            'monitor_rodando': monitor_rodando
+        })
+    except Exception as e:
+        return jsonify({
+            'sucesso': False,
+            'erro': str(e)
+        }), 500
 
 @app.route('/api/monitor/stop', methods=['POST'])
 def monitor_stop():
     """Para monitor"""
-    global monitor_rodando
+    global monitor_rodando, monitor_iniciado
     
     if not monitor_rodando:
-        return jsonify({'mensagem': 'Monitor não está rodando'}), 400
+        return jsonify({
+            'sucesso': False,
+            'mensagem': 'Monitor não está rodando'
+        }), 400
     
     monitor_rodando = False
-    return jsonify({'sucesso': True, 'mensagem': 'Monitor parado'})
+    monitor_iniciado = False
+    return jsonify({
+        'sucesso': True,
+        'mensagem': 'Monitor parado'
+    })
 
 @app.route('/api/monitor/status', methods=['GET'])
 def monitor_status():
     """Status do monitor"""
     return jsonify({
-        'rodando': monitor_rodando,
-        'thread_viva': monitor_thread.is_alive() if monitor_thread else False
+        'monitor_rodando': monitor_rodando,
+        'monitor_iniciado': monitor_iniciado,
+        'thread_ativa': monitor_thread.is_alive() if monitor_thread else False,
+        'verificar_disponivel': verificar is not None
     })
 
 # Servir arquivos estáticos
@@ -622,6 +703,44 @@ def resultados_json():
         logger.warning(f"Erro ao carregar resultados.json: {e}")
         return jsonify({'resultados': [], 'ultima_verificacao': None, 'total_resultados': 0, 'erro': str(e)})
 
+# Inicialização automática do monitor (quando módulo é carregado)
+# Verifica variável de ambiente ou inicia automaticamente
+def inicializar_monitor_automatico():
+    """Inicializa o monitor automaticamente se configurado"""
+    # Verificar variável de ambiente
+    auto_start = os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true'
+    intervalo = int(os.getenv('MONITOR_INTERVALO', '60'))
+    
+    if auto_start and verificar:
+        logger.info(f"🔄 Iniciando monitor automaticamente (intervalo: {intervalo}s)")
+        iniciar_monitor(intervalo)
+    else:
+        logger.info("ℹ️  Monitor não será iniciado automaticamente (use MONITOR_AUTO_START=true)")
+
+# Hook do Gunicorn para iniciar monitor quando worker é criado
+def on_starting(server):
+    """Hook executado quando Gunicorn inicia"""
+    logger.info("🚀 Gunicorn iniciando...")
+    inicializar_monitor_automatico()
+
+def when_ready(server):
+    """Hook executado quando Gunicorn está pronto"""
+    logger.info("✅ Gunicorn pronto!")
+    # Garantir que monitor está rodando
+    if not monitor_iniciado:
+        inicializar_monitor_automatico()
+
+# Inicializar monitor quando módulo é importado (para desenvolvimento)
+if os.getenv('FLASK_ENV') != 'production' or os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true':
+    # Pequeno delay para garantir que tudo está carregado
+    import atexit
+    def iniciar_ao_carregar():
+        time.sleep(2)  # Aguardar 2 segundos
+        inicializar_monitor_automatico()
+    
+    # Iniciar em thread separada para não bloquear
+    threading.Thread(target=iniciar_ao_carregar, daemon=True).start()
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -633,13 +752,7 @@ if __name__ == '__main__':
     
     # Iniciar monitor se solicitado
     if args.monitor and verificar:
-        monitor_thread = threading.Thread(
-            target=monitor_loop,
-            args=(args.intervalo,),
-            daemon=True
-        )
-        monitor_thread.start()
-        print(f"✅ Monitor iniciado automaticamente (intervalo: {args.intervalo}s)")
+        iniciar_monitor(args.intervalo)
     
     print(f"🚀 Servidor iniciando em http://{args.host}:{args.port}")
     print(f"📊 Dashboard: http://{args.host}:{args.port}/")
