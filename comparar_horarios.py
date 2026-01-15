@@ -168,6 +168,9 @@ def buscar_horarios_api(url=None):
             
             print(f"   ✅ Sucesso!")
             return horarios_api
+        except requests.exceptions.RequestException as e:
+            print(f"   ❌ Erro de conexão: {e}")
+            continue
         except Exception as e:
             print(f"   ❌ Erro: {e}")
             continue
@@ -202,9 +205,10 @@ def comparar_horarios(url_api=None):
                         horarios_api[loteria] = []
                     if horario not in horarios_api[loteria]:
                         horarios_api[loteria].append(horario)
+        except FileNotFoundError:
+            print("⚠️  Arquivo resultados.json não encontrado")
         except Exception as e:
             print(f"❌ Erro ao ler resultados.json: {e}")
-            return
     
     print(f"✅ Encontrados {sum(len(h) for h in horarios_api.values())} horários na API")
     print()
@@ -265,6 +269,28 @@ def comparar_horarios(url_api=None):
     # Gerar relatório
     print("=" * 80)
     print("RESUMO DA COMPARAÇÃO")
+    print("=" * 80)
+    print()
+    
+    # Primeiro, mostrar TODOS os horários coletados pelo monitor
+    print("=" * 80)
+    print("📡 HORÁRIOS COLETADOS PELO MONITOR (API)")
+    print("=" * 80)
+    print()
+    
+    if horarios_api:
+        for loteria_api, horarios in sorted(horarios_api.items()):
+            if horarios:
+                print(f"📊 {loteria_api}")
+                print(f"   Horários: {', '.join(sorted(horarios))}")
+                print(f"   Total: {len(horarios)} horário(s)")
+                print()
+    else:
+        print("⚠️  Nenhum horário encontrado na API")
+        print()
+    
+    print("=" * 80)
+    print("COMPARAÇÃO: TABELA vs API")
     print("=" * 80)
     print()
     
@@ -329,6 +355,28 @@ def comparar_horarios(url_api=None):
             print(f"  Horários na tabela: {', '.join(resultado['horarios_tabela'])}")
         if resultado['horarios_api']:
             print(f"  Horários na API:    {', '.join(resultado['horarios_api'])}")
+    
+    # Mostrar também loterias que estão na API mas não na tabela
+    print()
+    print("=" * 80)
+    print("LOTERIAS APENAS NO MONITOR (não na tabela)")
+    print("=" * 80)
+    print()
+    
+    loterias_tabela = set(TABELA_EXTRACOES.keys())
+    loterias_api = set(horarios_api.keys())
+    apenas_api = loterias_api - loterias_tabela
+    
+    if apenas_api:
+        for loteria in sorted(apenas_api):
+            horarios = horarios_api[loteria]
+            print(f"📊 {loteria}")
+            print(f"   Horários: {', '.join(sorted(horarios))}")
+            print(f"   Total: {len(horarios)} horário(s)")
+            print()
+    else:
+        print("✅ Todas as loterias do monitor estão na tabela")
+        print()
 
 if __name__ == '__main__':
     import sys
