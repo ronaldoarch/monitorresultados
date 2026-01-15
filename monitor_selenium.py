@@ -68,6 +68,8 @@ MAPEAMENTO_ESTADO = {
     "PT-SP/Bandeirantes": "SP",
     "PT Bahia": "BA",
     "PT Paraiba/Lotep": "PB",
+    "PT Paraíba": "PB",
+    "Lotep": "PB",
     "Look Goiás": "GO",
     "Lotece": "CE",
     "Maluca Bahia": "BA",
@@ -217,11 +219,13 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                             
                             # Validar se é um resultado válido (número de 3-4 dígitos e animal conhecido)
                             if re.match(r'^\d{3,4}$', numero) and len(animal) > 2:
-                                estado = identificar_estado(loteria_nome)
+                                # Separar PT Paraíba e Lotep baseado no horário
+                                loteria_final = separar_pt_paraiba_lotep(loteria_nome, horario, texto_contexto)
+                                estado = identificar_estado(loteria_final)
                                 resultados.append({
                                     'numero': numero,
                                     'animal': animal,
-                                    'loteria': loteria_nome,
+                                    'loteria': loteria_final,
                                     'estado': estado,
                                     'horario': horario,
                                     'posicao': posicao,
@@ -250,11 +254,13 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                 horario = horario_match.group(1) if horario_match else None
                 
                 posicao_h4 += 1
-                estado = identificar_estado(loteria_nome)
+                # Separar PT Paraíba e Lotep baseado no horário
+                loteria_final = separar_pt_paraiba_lotep(loteria_nome, horario, texto_contexto)
+                estado = identificar_estado(loteria_final)
                 resultados.append({
                     'numero': numero,
                     'animal': animal,
-                    'loteria': loteria_nome,
+                    'loteria': loteria_final,
                     'estado': estado,
                     'horario': horario,
                     'posicao': posicao_h4,
@@ -385,6 +391,54 @@ def extrair_resultados_principal():
         logger.error(f"Erro ao extrair da página principal: {e}")
     
     return resultados
+
+def separar_pt_paraiba_lotep(loteria_nome, horario, contexto=''):
+    """
+    Separa PT Paraíba e Lotep baseado no horário e contexto.
+    Horários Lotep: 09:45, 10:45, 12:45, 15:45, 18:45
+    Horários PT Paraíba: 09:00, 20:00 (e outros)
+    """
+    if loteria_nome != "PT Paraiba/Lotep":
+        return loteria_nome
+    
+    # Normalizar horário
+    horario_str = str(horario or '').replace('h', ':').replace('H', ':')
+    contexto_lower = str(contexto).lower()
+    
+    # Horários específicos do Lotep
+    horarios_lotep = ['09:45', '10:45', '12:45', '15:45', '18:45', '9:45', '10:45', '12:45', '15:45', '18:45']
+    
+    # Verificar se o contexto menciona "lotep" explicitamente
+    if 'lotep' in contexto_lower:
+        return "Lotep"
+    
+    # Verificar se o contexto menciona "pt paraíba" ou "pt paraiba" explicitamente
+    if 'pt paraíba' in contexto_lower or 'pt paraiba' in contexto_lower:
+        return "PT Paraíba"
+    
+    # Verificar horário
+    for h_lotep in horarios_lotep:
+        if h_lotep in horario_str or horario_str.startswith(h_lotep.split(':')[0]):
+            # Verificar se é realmente Lotep (horários terminam em :45)
+            if ':45' in horario_str or horario_str.endswith('45'):
+                return "Lotep"
+    
+    # Se não conseguir identificar pelo horário, verificar padrões comuns
+    # PT Paraíba geralmente tem horários redondos (09:00, 20:00)
+    if horario_str:
+        try:
+            partes = horario_str.split(':')
+            if len(partes) >= 2:
+                minutos = partes[1].strip()
+                if minutos == '00' or minutos == '0':
+                    return "PT Paraíba"
+                elif minutos == '45':
+                    return "Lotep"
+        except:
+            pass
+    
+    # Default: manter como está (será separado depois se necessário)
+    return "PT Paraíba"  # Default para PT Paraíba
 
 def identificar_loteria_por_contexto(texto):
     """Identifica loteria pelo contexto"""
@@ -579,7 +633,7 @@ def verificar():
     
     # Remover duplicados entre fontes (mesma loteria, horário e número)
     todos_resultados = deduplicar_resultados_por_chave(todos_resultados)
-
+    
     # Adicionar posições aos resultados
     todos_resultados = adicionar_posicoes(todos_resultados)
     
