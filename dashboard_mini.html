@@ -119,17 +119,27 @@ function filtrar(){
 const filtroLoteria=document.getElementById('filtro').value;
 const filtroData=document.getElementById('filtro-data').value;
 
+console.log('Filtro aplicado - Loteria:',filtroLoteria,'Data:',filtroData);
+console.log('Total de dados antes do filtro:',dados.length);
+
 dadosFiltrados=dados.filter(r=>{
 const passaLoteria=!filtroLoteria||r.loteria===filtroLoteria;
 if(!filtroData){
-const passaData=true;
-return passaLoteria&&passaData;
+return passaLoteria;
 }
 const dataResultado=extrairData(r);
+if(!dataResultado){
+console.log('Resultado sem data válida:',r);
+return false;
+}
 const passaData=dataResultado===filtroData;
+if(!passaData&&passaLoteria){
+console.log('Data não corresponde:',dataResultado,'vs',filtroData,'Resultado:',r);
+}
 return passaLoteria&&passaData;
 });
 
+console.log('Total de dados após filtro:',dadosFiltrados.length);
 document.getElementById('total').textContent=dadosFiltrados.length;
 renderizar();
 }
