@@ -310,13 +310,18 @@ def api_resultados_organizados():
         # Função para extrair data normalizada
         def extrair_data_normalizada(resultado):
             if 'data_extração' in resultado and resultado['data_extração']:
-                return resultado['data_extração']
+                data = resultado['data_extração']
+                if data and str(data).strip():
+                    return str(data).strip()
             if 'timestamp' in resultado and resultado['timestamp']:
                 try:
                     from datetime import datetime
-                    dt = datetime.fromisoformat(resultado['timestamp'].replace('Z', '+00:00'))
-                    return dt.strftime('%d/%m/%Y')
-                except:
+                    timestamp = resultado['timestamp']
+                    if timestamp:
+                        dt = datetime.fromisoformat(str(timestamp).replace('Z', '+00:00'))
+                        return dt.strftime('%d/%m/%Y')
+                except Exception as e:
+                    logger.debug(f"Erro ao extrair data do timestamp: {e}")
                     pass
             from datetime import datetime
             return datetime.now().strftime('%d/%m/%Y')
@@ -391,7 +396,13 @@ def api_resultados_organizados():
                 elif len(sorteios_ordenados) > 1:
                     # Múltiplos sorteios: usar o mais recente (último da lista ordenada)
                     # Ordenar por data (mais recente primeiro)
-                    sorteios_ordenados.sort(key=lambda x: x['data'], reverse=True)
+                    # Tratar casos onde data pode ser None
+                    def ordenar_por_data(item):
+                        data = item.get('data')
+                        if data is None:
+                            return ''  # Colocar None no final
+                        return data
+                    sorteios_ordenados.sort(key=ordenar_por_data, reverse=True)
                     organizados_final[tabela][horario] = sorteios_ordenados[0]['resultados']
         
         # Estatísticas
@@ -650,11 +661,11 @@ def monitor_start():
     try:
         intervalo = int(request.json.get('intervalo', 60)) if request.is_json and request.json else 60
         iniciar_monitor(intervalo)
-        return jsonify({
-            'sucesso': True,
+    return jsonify({
+        'sucesso': True,
             'mensagem': f'Monitor iniciado (intervalo: {intervalo}s)',
             'monitor_rodando': monitor_rodando
-        })
+    })
     except Exception as e:
         return jsonify({
             'sucesso': False,
