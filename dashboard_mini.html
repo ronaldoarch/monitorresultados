@@ -81,9 +81,30 @@ return null;
 
 async function carregar(){
 try{
-const r=await fetch('resultados.json?'+Date.now());
+const r=await fetch('/api/resultados/organizados?'+Date.now());
 const d=await r.json();
-dados=d.resultados||[];
+const organizados=d.organizados||{};
+dados=[];
+for(const loteria in organizados){
+for(const horario in organizados[loteria]){
+const resultados=organizados[loteria][horario];
+if(Array.isArray(resultados)){
+resultados.forEach(r=>{
+dados.push({
+loteria:loteria,
+horario:horario,
+numero:r.numero||'',
+animal:r.animal||'',
+posicao:r.posicao||0,
+colocacao:r.colocacao||'',
+data_extracao:r.data_extracao||'',
+timestamp:r.timestamp||new Date().toISOString(),
+estado:r.estado||'BR'
+});
+});
+}
+}
+}
 dadosFiltrados=dados;
 document.getElementById('total').textContent=dados.length;
 if(d.ultima_verificacao){
@@ -96,7 +117,10 @@ const sel=document.getElementById('filtro');
 sel.innerHTML='<option value="">Todas</option>';
 [...lot].sort().forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});
 renderizar();
-}catch(e){document.getElementById('container').innerHTML='<div class="empty">Erro ao carregar</div>';}
+}catch(e){
+console.error('Erro ao carregar:',e);
+document.getElementById('container').innerHTML='<div class="empty">Erro ao carregar: '+e.message+'</div>';
+}
 }
 function renderizar(){
 const c=document.getElementById('container');
@@ -109,7 +133,7 @@ grupos[k].resultados.push(r);
 });
 const ord=Object.values(grupos).sort((a,b)=>a.loteria.localeCompare(b.loteria)||(b.horario||'').localeCompare(a.horario||''));
 c.innerHTML=ord.map(g=>{
-g.resultados.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+g.resultados.sort((a,b)=>(a.posicao||999)-(b.posicao||999));
 const cards=g.resultados.map(r=>{
 let dt;
 try{
@@ -118,7 +142,8 @@ if(isNaN(dt.getTime()))dt=new Date();
 }catch(e){dt=new Date();}
 const dataFormatada=dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 const dataISO=extrairData(r)||'';
-return`<div class="card" data-loteria="${r.loteria}" data-data="${dataISO}"><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dataFormatada}</div></div>`;
+const posicao=r.colocacao||(r.posicao?r.posicao+'°':'');
+return`<div class="card" data-loteria="${r.loteria}" data-data="${dataISO}" data-posicao="${r.posicao||0}"><div class="posicao" style="font-size:0.7rem;color:#94a3b8;margin-bottom:5px">${posicao}</div><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dataFormatada}</div></div>`;
 }).join('');
 return`<div class="grupo" data-loteria="${g.loteria}"><div class="grupo-header"><h3 class="grupo-titulo">${g.loteria}</h3><span class="grupo-horario">🕐 ${g.horario}</span><span class="grupo-count">${g.resultados.length}</span></div><div class="grid">${cards}</div></div>`;
 }).join('');
