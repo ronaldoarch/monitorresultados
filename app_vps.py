@@ -431,6 +431,24 @@ def api_resultados_organizados():
             'erro': str(e)
         }), 500
 
+@app.route('/api/resultados/liquidar', methods=['POST'])
+def api_liquidar_resultados():
+    """Endpoint para forçar liquidação de apostas (placeholder)"""
+    try:
+        # Este endpoint é um placeholder - a liquidação real deve ser implementada
+        # com o sistema de apostas completo (app_apostas.py)
+        return jsonify({
+            'sucesso': False,
+            'mensagem': 'Endpoint de liquidação não implementado neste app. Use app_apostas.py para sistema completo de apostas.',
+            'endpoint_alternativo': '/api/resultados/organizados'
+        }), 501
+    except Exception as e:
+        logger.error(f"Erro no endpoint de liquidação: {e}")
+        return jsonify({
+            'sucesso': False,
+            'erro': str(e)
+        }), 500
+
 @app.route('/api/resultados/data/<data>')
 def api_resultados_data(data):
     """API para retornar resultados de uma data específica (formato: DD-MM-YYYY ou DD/MM/YYYY)"""
