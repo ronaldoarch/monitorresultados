@@ -54,8 +54,21 @@ let dados=[];
 let dadosFiltrados=[];
 
 function extrairData(resultado){
+if(resultado.data_extracao){
+const partes=resultado.data_extracao.split('/');
+if(partes.length===3){
+return `${partes[2]}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`;
+}
+}
+if(resultado.timestamp){
+try{
 const dt=new Date(resultado.timestamp);
+if(!isNaN(dt.getTime())){
 return dt.toISOString().split('T')[0];
+}
+}catch(e){}
+}
+return null;
 }
 
 async function carregar(){
@@ -90,8 +103,14 @@ const ord=Object.values(grupos).sort((a,b)=>a.loteria.localeCompare(b.loteria)||
 c.innerHTML=ord.map(g=>{
 g.resultados.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
 const cards=g.resultados.map(r=>{
-const dt=new Date(r.timestamp);
-return`<div class="card" data-loteria="${r.loteria}" data-data="${extrairData(r)}"><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`;
+let dt;
+try{
+dt=r.timestamp?new Date(r.timestamp):new Date();
+if(isNaN(dt.getTime()))dt=new Date();
+}catch(e){dt=new Date();}
+const dataFormatada=dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const dataISO=extrairData(r)||'';
+return`<div class="card" data-loteria="${r.loteria}" data-data="${dataISO}"><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dataFormatada}</div></div>`;
 }).join('');
 return`<div class="grupo" data-loteria="${g.loteria}"><div class="grupo-header"><h3 class="grupo-titulo">${g.loteria}</h3><span class="grupo-horario">🕐 ${g.horario}</span><span class="grupo-count">${g.resultados.length}</span></div><div class="grid">${cards}</div></div>`;
 }).join('');
@@ -102,7 +121,12 @@ const filtroData=document.getElementById('filtro-data').value;
 
 dadosFiltrados=dados.filter(r=>{
 const passaLoteria=!filtroLoteria||r.loteria===filtroLoteria;
-const passaData=!filtroData||extrairData(r)===filtroData;
+if(!filtroData){
+const passaData=true;
+return passaLoteria&&passaData;
+}
+const dataResultado=extrairData(r);
+const passaData=dataResultado===filtroData;
 return passaLoteria&&passaData;
 });
 
