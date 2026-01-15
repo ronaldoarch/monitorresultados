@@ -193,6 +193,8 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
             if tabela:
                 linhas = tabela.find_all('tr')
                 posicao = 0
+                # Obter contexto do título para ajudar na identificação
+                texto_contexto = titulo.get_text(strip=True) if titulo else ""
                 for linha in linhas:
                     # Procurar células com número e animal
                     tds = linha.find_all('td')
@@ -303,11 +305,13 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                         horario = horario_match.group(1) if horario_match else None
                         
                         posicao_fallback += 1
-                        estado = identificar_estado(loteria_nome)
+                        # Separar PT Paraíba e Lotep baseado no horário
+                        loteria_final = separar_pt_paraiba_lotep(loteria_nome, horario, texto)
+                        estado = identificar_estado(loteria_final)
                         resultados.append({
                             'numero': numero,
                             'animal': animal,
-                            'loteria': loteria_nome,
+                            'loteria': loteria_final,
                             'estado': estado,
                             'horario': horario,
                             'posicao': posicao_fallback,
