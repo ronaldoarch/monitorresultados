@@ -14,10 +14,12 @@ h1{font-size:2rem;color:#6366f1;margin-bottom:10px}
 .stat{background:#1e293b;padding:20px;border-radius:8px;text-align:center;border:1px solid #334155}
 .stat-value{font-size:1.8rem;color:#6366f1;font-weight:700}
 .stat-label{color:#94a3b8;font-size:0.9rem;margin-top:5px}
-.controls{margin-bottom:20px;display:flex;gap:10px}
+.controls{margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap}
 .btn{background:#6366f1;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer}
 .btn:hover{background:#4f46e5}
 .select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;padding:10px;border-radius:6px;min-width:200px}
+.input-date{background:#1e293b;color:#f1f5f9;border:1px solid #334155;padding:10px;border-radius:6px;min-width:180px;font-size:0.9rem}
+.input-date::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer}
 .grupo{background:#1e293b;border-radius:8px;padding:20px;margin-bottom:25px;border:1px solid #334155}
 .grupo-header{display:flex;align-items:center;gap:15px;margin-bottom:15px;padding-bottom:15px;border-bottom:2px solid #6366f1;flex-wrap:wrap}
 .grupo-titulo{font-size:1.3rem;color:#6366f1;font-weight:700;flex:1}
@@ -42,16 +44,26 @@ h1{font-size:2rem;color:#6366f1;margin-bottom:10px}
 <div class="controls">
 <button class="btn" onclick="carregar()">🔄 Atualizar</button>
 <select class="select" id="filtro" onchange="filtrar()"><option value="">Todas</option></select>
+<input type="date" class="input-date" id="filtro-data" onchange="filtrar()" title="Filtrar por data">
+<button class="btn" onclick="limparFiltros()" style="background:#64748b">🗑️ Limpar Filtros</button>
 </div>
 <div id="container"></div>
 </div>
 <script>
 let dados=[];
+let dadosFiltrados=[];
+
+function extrairData(resultado){
+const dt=new Date(resultado.timestamp);
+return dt.toISOString().split('T')[0];
+}
+
 async function carregar(){
 try{
 const r=await fetch('resultados.json?'+Date.now());
 const d=await r.json();
 dados=d.resultados||[];
+dadosFiltrados=dados;
 document.getElementById('total').textContent=dados.length;
 if(d.ultima_verificacao){
 const dt=new Date(d.ultima_verificacao);
@@ -67,9 +79,9 @@ renderizar();
 }
 function renderizar(){
 const c=document.getElementById('container');
-if(dados.length===0){c.innerHTML='<div class="empty">Nenhum resultado</div>';return;}
+if(dadosFiltrados.length===0){c.innerHTML='<div class="empty">Nenhum resultado encontrado</div>';return;}
 const grupos={};
-dados.forEach(r=>{
+dadosFiltrados.forEach(r=>{
 const k=`${r.loteria}_${r.horario||'N/A'}`;
 if(!grupos[k])grupos[k]={loteria:r.loteria,horario:r.horario||'N/A',resultados:[]};
 grupos[k].resultados.push(r);
@@ -79,14 +91,31 @@ c.innerHTML=ord.map(g=>{
 g.resultados.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
 const cards=g.resultados.map(r=>{
 const dt=new Date(r.timestamp);
-return`<div class="card" data-loteria="${r.loteria}"><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`;
+return`<div class="card" data-loteria="${r.loteria}" data-data="${extrairData(r)}"><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`;
 }).join('');
 return`<div class="grupo" data-loteria="${g.loteria}"><div class="grupo-header"><h3 class="grupo-titulo">${g.loteria}</h3><span class="grupo-horario">🕐 ${g.horario}</span><span class="grupo-count">${g.resultados.length}</span></div><div class="grid">${cards}</div></div>`;
 }).join('');
 }
 function filtrar(){
-const v=document.getElementById('filtro').value;
-document.querySelectorAll('.grupo').forEach(g=>{g.style.display=(!v||g.dataset.loteria===v)?'block':'none';});
+const filtroLoteria=document.getElementById('filtro').value;
+const filtroData=document.getElementById('filtro-data').value;
+
+dadosFiltrados=dados.filter(r=>{
+const passaLoteria=!filtroLoteria||r.loteria===filtroLoteria;
+const passaData=!filtroData||extrairData(r)===filtroData;
+return passaLoteria&&passaData;
+});
+
+document.getElementById('total').textContent=dadosFiltrados.length;
+renderizar();
+}
+
+function limparFiltros(){
+document.getElementById('filtro').value='';
+document.getElementById('filtro-data').value='';
+dadosFiltrados=dados;
+document.getElementById('total').textContent=dados.length;
+renderizar();
 }
 carregar();
 setInterval(carregar,30000);
