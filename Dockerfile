@@ -30,6 +30,7 @@ COPY integracao_endpoint_php.py .
 COPY dashboard_mini.html .
 COPY gunicorn_config.py .
 COPY comparar_horarios.py .
+COPY reprocessar_separar_loterias.py .
 
 # Criar diretório para resultados
 RUN mkdir -p /app/data
