@@ -661,11 +661,11 @@ def monitor_start():
     try:
         intervalo = int(request.json.get('intervalo', 60)) if request.is_json and request.json else 60
         iniciar_monitor(intervalo)
-    return jsonify({
-        'sucesso': True,
+        return jsonify({
+            'sucesso': True,
             'mensagem': f'Monitor iniciado (intervalo: {intervalo}s)',
             'monitor_rodando': monitor_rodando
-    })
+        })
     except Exception as e:
         return jsonify({
             'sucesso': False,
