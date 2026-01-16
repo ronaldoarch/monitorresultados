@@ -365,6 +365,19 @@ def api_resultados_organizados():
         # Usar chave única: loteria + horário + data para separar sorteios diferentes
         organizados = {}
         
+        # Debug: verificar quantos resultados da Loteria Nacional existem e seus horários
+        resultados_ln = [r for r in resultados if r.get('loteria') == 'Loteria Nacional']
+        if resultados_ln:
+            horarios_ln = {}
+            for r in resultados_ln:
+                horario = r.get('horario', 'N/A')
+                if horario not in horarios_ln:
+                    horarios_ln[horario] = 0
+                horarios_ln[horario] += 1
+            logger.info(f"🔍 DEBUG API: Loteria Nacional tem {len(resultados_ln)} resultados em {len(horarios_ln)} horários: {list(horarios_ln.keys())}")
+            for horario, count in horarios_ln.items():
+                logger.info(f"   🕐 {horario}: {count} resultados")
+        
         for r in resultados:
             loteria = r.get('loteria', 'Desconhecida')
             horario = r.get('horario', 'N/A')
