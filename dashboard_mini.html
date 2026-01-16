@@ -109,8 +109,8 @@ dadosFiltrados=dados;
 document.getElementById('total').textContent=dados.length;
 if(d.ultima_verificacao){
 const dt=new Date(d.ultima_verificacao);
-const dataBR=new Date(dt.toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
-document.getElementById('ultima').textContent=dataBR.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const options={timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'};
+document.getElementById('ultima').textContent=dt.toLocaleString('pt-BR',options);
 }
 const lot=new Set(dados.map(x=>x.loteria));
 document.getElementById('loterias').textContent=lot.size;
