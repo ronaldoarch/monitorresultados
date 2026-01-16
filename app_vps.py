@@ -424,21 +424,41 @@ def api_resultados_organizados():
                         })
                 
                 # Se houver apenas um sorteio para este horário, usar formato simples
-                # Se houver múltiplos sorteios, manter separados por data
+                # Se houver múltiplos sorteios, combinar todos os resultados (até 7 posições)
                 if len(sorteios_ordenados) == 1:
-                    # Formato simples: apenas os resultados do sorteio mais recente
+                    # Formato simples: apenas os resultados do sorteio
                     organizados_final[tabela][horario] = sorteios_ordenados[0]['resultados']
                 elif len(sorteios_ordenados) > 1:
-                    # Múltiplos sorteios: usar o mais recente (último da lista ordenada)
-                    # Ordenar por data (mais recente primeiro)
-                    # Tratar casos onde data pode ser None
+                    # Múltiplos sorteios: combinar todos os resultados únicos
+                    # Ordenar por data (mais recente primeiro) para priorizar resultados mais recentes
                     def ordenar_por_data(item):
                         data = item.get('data')
                         if data is None:
                             return ''  # Colocar None no final
                         return data
                     sorteios_ordenados.sort(key=ordenar_por_data, reverse=True)
-                    organizados_final[tabela][horario] = sorteios_ordenados[0]['resultados']
+                    
+                    # Combinar resultados de todos os sorteios, evitando duplicatas
+                    # Duplicata = mesmo número na mesma posição
+                    resultados_combinados = []
+                    numeros_vistos = set()
+                    
+                    for sorteio in sorteios_ordenados:
+                        for resultado in sorteio['resultados']:
+                            # Criar chave única: posição + número
+                            chave = f"{resultado.get('posicao', 0)}_{resultado.get('numero', '')}"
+                            if chave not in numeros_vistos:
+                                numeros_vistos.add(chave)
+                                resultados_combinados.append(resultado)
+                                # Limitar a 7 posições no total
+                                if len(resultados_combinados) >= 7:
+                                    break
+                        if len(resultados_combinados) >= 7:
+                            break
+                    
+                    # Ordenar por posição antes de retornar
+                    resultados_combinados.sort(key=lambda x: x.get('posicao', 0))
+                    organizados_final[tabela][horario] = resultados_combinados[:7]
         
         # Estatísticas
         total_tabelas = len(organizados_final)
