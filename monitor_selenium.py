@@ -233,8 +233,8 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                                     'posicao': posicao,
                                     'colocacao': f"{posicao}°",
                                     'texto_completo': f"{numero} {animal}",
-                                    'timestamp': datetime.now().isoformat(),
-                                    'data_extração': datetime.now().strftime('%d/%m/%Y'),
+                                    'timestamp': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
+                                    'data_extração': datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y'),
                                     'url_origem': url
                                 })
         
@@ -268,8 +268,8 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                     'posicao': posicao_h4,
                     'colocacao': f"{posicao_h4}°",
                     'texto_completo': texto,
-                    'timestamp': datetime.now().isoformat(),
-                    'data_extração': datetime.now().strftime('%d/%m/%Y'),
+                    'timestamp': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
+                    'data_extração': datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y'),
                     'url_origem': url
                 })
         
@@ -317,8 +317,8 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                             'posicao': posicao_fallback,
                             'colocacao': f"{posicao_fallback}°",
                             'texto_completo': texto[:100],
-                            'timestamp': datetime.now().isoformat(),
-                            'data_extração': datetime.now().strftime('%d/%m/%Y'),
+                            'timestamp': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
+                            'data_extração': datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y'),
                             'url_origem': url
                         })
                         break  # Encontrou um, pode parar
@@ -377,8 +377,8 @@ def extrair_resultados_principal():
                     'estado': estado,
                     'horario': horario,
                     'texto_completo': texto,
-                    'timestamp': datetime.now().isoformat(),
-                    'data_extração': datetime.now().strftime('%d/%m/%Y'),
+                    'timestamp': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
+                    'data_extração': datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y'),
                     'url_origem': URL_PRINCIPAL
                 })
         
@@ -651,7 +651,7 @@ def verificar():
         dados_anteriores['resultados'] = deduplicar_resultados_por_chave(dados_anteriores['resultados'])
         # Re-adicionar posições a todos os resultados (incluindo antigos)
         dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
-        dados_anteriores['ultima_verificacao'] = datetime.now().isoformat()
+        dados_anteriores['ultima_verificacao'] = datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat()
         dados_anteriores['total_resultados'] = len(dados_anteriores['resultados'])
         salvar_resultados(dados_anteriores)
         # Sincronizar com Cloudflare
@@ -697,7 +697,7 @@ def sincronizar_cloudflare():
             
             subprocess.run([
                 'git', 'commit', '-m',
-                f'Atualizar resultados - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+                f'Atualizar resultados - {datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d %H:%M:%S")}'
             ], check=False, cwd=os.path.dirname(__file__))
             
             # Push
