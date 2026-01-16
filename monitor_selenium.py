@@ -153,6 +153,10 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         logger.info(f"Carregando {url}...")
         driver.get(url)
         
+        # Log para debug - verificar se página carregou
+        if "loteria-nacional" in url.lower():
+            logger.debug(f"🔍 DEBUG Loteria Nacional: URL carregada, verificando estrutura...")
+        
         # Aguardar conteúdo carregar (até 15 segundos)
         try:
             WebDriverWait(driver, 15).until(
@@ -189,14 +193,33 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         # Também procurar por divs com classes relacionadas a cards/tabelas
         divs_display = soup.find_all('div', id=re.compile(r'div_display_\d+'))
         
+        # Debug para Loteria Nacional
+        if "loteria-nacional" in url.lower():
+            logger.debug(f"🔍 DEBUG: Encontrados {len(divs_display)} divs com id='div_display_XX'")
+            # Verificar se há tabelas na página
+            tabelas = soup.find_all('table')
+            logger.debug(f"🔍 DEBUG: Encontradas {len(tabelas)} tabelas na página")
+            # Verificar estrutura HTML básica
+            h4_tags = soup.find_all('h4')
+            logger.debug(f"🔍 DEBUG: Encontrados {len(h4_tags)} elementos h4")
+            # Verificar se há elementos com classe card
+            cards = soup.find_all(class_=re.compile(r'card', re.I))
+            logger.debug(f"🔍 DEBUG: Encontrados {len(cards)} elementos com classe 'card'")
+        
         # Se não encontrou divs_display, procurar por outras estruturas (para Loteria Nacional)
         if not divs_display and "loteria-nacional" in url.lower():
+            logger.debug(f"🔍 DEBUG: Tentando métodos alternativos de extração...")
             # Procurar por divs com classes de card ou tabela
             divs_display = soup.find_all('div', class_=re.compile(r'card|tabela|resultado|sorteio', re.I))
+            logger.debug(f"🔍 DEBUG: Encontrados {len(divs_display)} divs com classes relacionadas")
             # Também procurar por divs que contenham tabelas diretamente
             if not divs_display:
                 divs_com_tabela = soup.find_all('div')
                 divs_display = [d for d in divs_com_tabela if d.find('table')]
+                logger.debug(f"🔍 DEBUG: Encontrados {len(divs_display)} divs contendo tabelas")
+        
+        if "loteria-nacional" in url.lower() and not divs_display:
+            logger.warning(f"⚠️  Loteria Nacional: Nenhuma estrutura de resultados encontrada. Tentando extrair de h4 tags...")
         
         for div_display in divs_display:
             # Buscar título com horário
@@ -258,8 +281,10 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
                                     'url_origem': url
                                 })
         
-        # Método 2: Extrair de h4 tags (página principal)
+        # Método 2: Extrair de h4 tags (página principal ou fallback)
         h4_tags = soup.find_all('h4')
+        if "loteria-nacional" in url.lower() and not resultados:
+            logger.debug(f"🔍 DEBUG: Tentando extrair de {len(h4_tags)} elementos h4...")
         posicao_h4 = 0
         for h4 in h4_tags:
             texto = h4.get_text(strip=True)
@@ -306,6 +331,8 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         
         # Se não encontrou, procurar em outras tags (fallback)
         if not resultados:
+            if "loteria-nacional" in url.lower():
+                logger.debug(f"🔍 DEBUG: Tentando método fallback de extração...")
             elementos = soup.find_all(['div', 'span', 'p', 'td', 'h1', 'h2', 'h3', 'h5', 'h6'])
             posicao_fallback = 0
             for elem in elementos:
@@ -345,6 +372,16 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         
     except Exception as e:
         logger.error(f"Erro ao extrair de {url}: {e}")
+        if "loteria-nacional" in url.lower():
+            logger.error(f"❌ Erro detalhado na Loteria Nacional: {e}", exc_info=True)
+    
+    if "loteria-nacional" in url.lower():
+        logger.info(f"📊 Loteria Nacional: Total de {len(resultados)} resultados extraídos de {url}")
+        if resultados:
+            # Mostrar alguns exemplos
+            exemplos = resultados[:3]
+            for ex in exemplos:
+                logger.debug(f"   Exemplo: {ex.get('numero')} {ex.get('animal')} - {ex.get('horario')} - Posição {ex.get('posicao')}")
     
     return resultados
 
