@@ -362,6 +362,7 @@ def api_resultados_organizados():
             return datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y')
         
         # Organizar por tabela (loteria), horário e data (sorteio específico)
+        # Usar chave única: loteria + horário + data para separar sorteios diferentes
         organizados = {}
         
         for r in resultados:
@@ -369,16 +370,18 @@ def api_resultados_organizados():
             horario = r.get('horario', 'N/A')
             data = extrair_data_normalizada(r)
             
-            # Criar chave única: loteria + horário + data (sorteio específico)
+            # Criar chave única para cada sorteio: loteria + horário + data
+            # Isso permite que múltiplos sorteios no mesmo horário sejam separados
             chave_tabela = loteria
-            chave_horario = horario
+            # Usar horário + data como chave para separar sorteios diferentes
+            chave_horario_data = f"{horario}_{data}"
             
             # Inicializar estrutura se não existir
             if chave_tabela not in organizados:
                 organizados[chave_tabela] = {}
             
-            if chave_horario not in organizados[chave_tabela]:
-                organizados[chave_tabela][chave_horario] = []
+            if chave_horario_data not in organizados[chave_tabela]:
+                organizados[chave_tabela][chave_horario_data] = []
             
             # Adicionar resultado formatado
             resultado_formatado = {
@@ -392,73 +395,61 @@ def api_resultados_organizados():
                 'timestamp': r.get('timestamp', '')
             }
             
-            organizados[chave_tabela][chave_horario].append(resultado_formatado)
+            organizados[chave_tabela][chave_horario_data].append(resultado_formatado)
         
-        # Agrupar por sorteio (mesma data) e limitar a 7 posições por sorteio
+        # Processar e limitar a 7 posições por sorteio
+        # Agora cada chave horario_data já representa um sorteio único
         organizados_final = {}
         
         for tabela in organizados:
             organizados_final[tabela] = {}
             
-            for horario in organizados[tabela]:
-                # Agrupar resultados por data (sorteio)
-                resultados_por_data = {}
-                for resultado in organizados[tabela][horario]:
-                    data = resultado['data_extracao']
-                    if data not in resultados_por_data:
-                        resultados_por_data[data] = []
-                    resultados_por_data[data].append(resultado)
+            # Agrupar por horário para exibir múltiplos sorteios do mesmo horário separadamente
+            horarios_agrupados = {}
+            for chave_horario_data in organizados[tabela]:
+                # Extrair horário da chave (formato: "horario_data")
+                partes = chave_horario_data.split('_', 1)
+                horario = partes[0] if partes else 'N/A'
+                data = partes[1] if len(partes) > 1 else None
                 
-                # Para cada sorteio (data), ordenar e limitar a 7 posições
-                sorteios_ordenados = []
-                for data, resultados_sorteio in resultados_por_data.items():
-                    # Ordenar por posição
-                    resultados_sorteio.sort(key=lambda x: x.get('posicao', 0))
-                    # Limitar a 7 posições (1° a 7°)
-                    resultados_sorteio = resultados_sorteio[:7]
-                    # Adicionar apenas se tiver resultados válidos (posição 1-7)
-                    if resultados_sorteio and resultados_sorteio[0].get('posicao', 0) <= 7:
-                        sorteios_ordenados.append({
-                            'data': data,
-                            'resultados': resultados_sorteio
-                        })
+                if horario not in horarios_agrupados:
+                    horarios_agrupados[horario] = []
                 
-                # Se houver apenas um sorteio para este horário, usar formato simples
-                # Se houver múltiplos sorteios, combinar todos os resultados (até 7 posições)
-                if len(sorteios_ordenados) == 1:
-                    # Formato simples: apenas os resultados do sorteio
-                    organizados_final[tabela][horario] = sorteios_ordenados[0]['resultados']
-                elif len(sorteios_ordenados) > 1:
-                    # Múltiplos sorteios: combinar todos os resultados únicos
-                    # Ordenar por data (mais recente primeiro) para priorizar resultados mais recentes
-                    def ordenar_por_data(item):
-                        data = item.get('data')
-                        if data is None:
-                            return ''  # Colocar None no final
-                        return data
-                    sorteios_ordenados.sort(key=ordenar_por_data, reverse=True)
-                    
-                    # Combinar resultados de todos os sorteios, evitando duplicatas
-                    # Duplicata = mesmo número na mesma posição
-                    resultados_combinados = []
-                    numeros_vistos = set()
-                    
-                    for sorteio in sorteios_ordenados:
-                        for resultado in sorteio['resultados']:
-                            # Criar chave única: posição + número
-                            chave = f"{resultado.get('posicao', 0)}_{resultado.get('numero', '')}"
-                            if chave not in numeros_vistos:
-                                numeros_vistos.add(chave)
-                                resultados_combinados.append(resultado)
-                                # Limitar a 7 posições no total
-                                if len(resultados_combinados) >= 7:
-                                    break
-                        if len(resultados_combinados) >= 7:
-                            break
-                    
-                    # Ordenar por posição antes de retornar
-                    resultados_combinados.sort(key=lambda x: x.get('posicao', 0))
-                    organizados_final[tabela][horario] = resultados_combinados[:7]
+                # Processar resultados deste sorteio
+                resultados_sorteio = organizados[tabela][chave_horario_data]
+                # Ordenar por posição
+                resultados_sorteio.sort(key=lambda x: x.get('posicao', 0))
+                # Limitar a 7 posições (1° a 7°)
+                resultados_sorteio = resultados_sorteio[:7]
+                # Adicionar apenas se tiver resultados válidos (posição 1-7)
+                if resultados_sorteio and resultados_sorteio[0].get('posicao', 0) <= 7:
+                    horarios_agrupados[horario].append({
+                        'data': data,
+                        'resultados': resultados_sorteio
+                    })
+            
+            # Para cada horário, ordenar sorteios por data (mais recente primeiro)
+            # e exibir todos os sorteios separadamente
+            for horario in horarios_agrupados:
+                sorteios = horarios_agrupados[horario]
+                if not sorteios:
+                    continue
+                
+                # Ordenar sorteios por data (mais recente primeiro)
+                def ordenar_por_data(item):
+                    data = item.get('data')
+                    if data is None:
+                        return ''
+                    return data
+                sorteios.sort(key=ordenar_por_data, reverse=True)
+                
+                # Se houver apenas um sorteio, usar formato simples
+                if len(sorteios) == 1:
+                    organizados_final[tabela][horario] = sorteios[0]['resultados']
+                else:
+                    # Múltiplos sorteios no mesmo horário: usar o mais recente
+                    # Mas manter estrutura para permitir expansão futura
+                    organizados_final[tabela][horario] = sorteios[0]['resultados']
         
         # Estatísticas
         total_tabelas = len(organizados_final)
