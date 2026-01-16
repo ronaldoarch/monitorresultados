@@ -54,12 +54,14 @@ except ImportError:
 monitor_rodando = False
 monitor_thread = None
 monitor_iniciado = False
+watchdog_thread = None
+watchdog_rodando = False
 
 def iniciar_monitor(intervalo=60):
     """Inicia o monitor em uma thread separada"""
-    global monitor_thread, monitor_iniciado
+    global monitor_thread, monitor_iniciado, monitor_rodando
     
-    if monitor_iniciado:
+    if monitor_iniciado and monitor_thread and monitor_thread.is_alive():
         logger.warning("⚠️  Monitor já está rodando")
         return
     
@@ -67,6 +69,12 @@ def iniciar_monitor(intervalo=60):
         logger.warning("⚠️  Função verificar não disponível. Monitor não será iniciado.")
         return
     
+    # Se thread anterior morreu, resetar flag
+    if monitor_thread and not monitor_thread.is_alive():
+        logger.info("🔄 Reiniciando monitor (thread anterior morreu)")
+        monitor_iniciado = False
+    
+    monitor_rodando = True
     monitor_thread = threading.Thread(
         target=monitor_loop,
         args=(intervalo,),
@@ -76,6 +84,9 @@ def iniciar_monitor(intervalo=60):
     monitor_thread.start()
     monitor_iniciado = True
     logger.info(f"✅ Monitor Bicho Certo iniciado em thread separada (intervalo: {intervalo}s)")
+    
+    # Iniciar watchdog se ainda não estiver rodando
+    iniciar_watchdog()
 
 def monitor_loop(intervalo=60):
     """Loop do monitor em background - apenas Bicho Certo"""
@@ -92,6 +103,10 @@ def monitor_loop(intervalo=60):
                 logger.info(f"✅ Bicho Certo: {novos} novos resultados encontrados na primeira verificação!")
     except Exception as e:
         logger.error(f"❌ Erro na primeira verificação: {e}")
+        # Não parar o monitor por causa de um erro
+    
+    tentativas_consecutivas_erro = 0
+    max_tentativas_erro = 5  # Máximo de 5 erros consecutivos antes de reiniciar
     
     while monitor_rodando:
         try:
@@ -99,8 +114,18 @@ def monitor_loop(intervalo=60):
                 novos = verificar()
                 if novos > 0:
                     logger.info(f"✅ Bicho Certo: {novos} novos resultados encontrados!")
+                    tentativas_consecutivas_erro = 0  # Reset contador de erros
+            else:
+                logger.warning("⚠️  Função verificar não disponível")
         except Exception as e:
-            logger.error(f"❌ Erro no monitor: {e}")
+            tentativas_consecutivas_erro += 1
+            logger.error(f"❌ Erro no monitor (tentativa {tentativas_consecutivas_erro}/{max_tentativas_erro}): {e}")
+            
+            # Se muitos erros consecutivos, aguardar mais tempo antes de tentar novamente
+            if tentativas_consecutivas_erro >= max_tentativas_erro:
+                logger.warning(f"⚠️  Muitos erros consecutivos. Aguardando 60s antes de continuar...")
+                time.sleep(60)
+                tentativas_consecutivas_erro = 0  # Reset após espera
         
         # Aguardar intervalo
         for _ in range(intervalo):
@@ -605,10 +630,11 @@ def api_monitor_start():
 @app.route('/api/monitor/stop', methods=['POST'])
 def api_monitor_stop():
     """Para o monitor"""
-    global monitor_rodando, monitor_iniciado
+    global monitor_rodando, monitor_iniciado, watchdog_rodando
     try:
         monitor_rodando = False
         monitor_iniciado = False
+        watchdog_rodando = False  # Parar watchdog também
         return jsonify({
             'sucesso': True,
             'mensagem': 'Monitor parado'
@@ -619,6 +645,48 @@ def api_monitor_stop():
             'erro': str(e)
         }), 500
 
+@app.route('/api/monitor/health', methods=['GET'])
+def api_monitor_health():
+    """Health check do monitor - verifica se está rodando e reinicia se necessário"""
+    global monitor_thread, monitor_iniciado, watchdog_thread, watchdog_rodando
+    
+    try:
+        intervalo = int(os.getenv('MONITOR_INTERVALO', '60'))
+        auto_start = os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true'
+        
+        monitor_ativo = monitor_thread and monitor_thread.is_alive() if monitor_thread else False
+        watchdog_ativo = watchdog_thread and watchdog_thread.is_alive() if watchdog_thread else False
+        
+        # Se monitor deveria estar rodando mas não está, tentar reiniciar
+        if auto_start and verificar and not monitor_ativo:
+            logger.warning("⚠️  Health check detectou monitor parado. Reiniciando...")
+            monitor_iniciado = False
+            iniciar_monitor(intervalo)
+            monitor_ativo = monitor_thread and monitor_thread.is_alive() if monitor_thread else False
+        
+        # Garantir que watchdog está rodando
+        if auto_start and not watchdog_ativo:
+            logger.info("🔄 Iniciando watchdog via health check...")
+            iniciar_watchdog()
+            watchdog_ativo = watchdog_thread and watchdog_thread.is_alive() if watchdog_thread else False
+        
+        return jsonify({
+            'monitor_ativo': monitor_ativo,
+            'monitor_iniciado': monitor_iniciado,
+            'watchdog_ativo': watchdog_ativo,
+            'auto_start': auto_start,
+            'intervalo': intervalo,
+            'status': 'ok' if monitor_ativo else 'inativo',
+            'mensagem': 'Monitor ativo' if monitor_ativo else 'Monitor inativo - tentando reiniciar...'
+        })
+    except Exception as e:
+        logger.error(f"Erro no health check: {e}")
+        return jsonify({
+            'monitor_ativo': False,
+            'erro': str(e),
+            'status': 'erro'
+        }), 500
+
 @app.route('/api/monitor/status', methods=['GET'])
 def api_monitor_status():
     """Status do monitor"""
@@ -626,7 +694,10 @@ def api_monitor_status():
         'monitor_rodando': monitor_rodando,
         'monitor_iniciado': monitor_iniciado,
         'thread_ativa': monitor_thread.is_alive() if monitor_thread else False,
-        'verificar_disponivel': verificar is not None
+        'watchdog_ativo': watchdog_thread.is_alive() if watchdog_thread else False,
+        'verificar_disponivel': verificar is not None,
+        'auto_start': os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true',
+        'intervalo': int(os.getenv('MONITOR_INTERVALO', '60'))
     })
 
 @app.route('/api/resultados/processar', methods=['POST'])
@@ -656,11 +727,16 @@ def api_status():
     dados = carregar_resultados()
     return jsonify({
         'monitor_rodando': monitor_rodando,
+        'monitor_iniciado': monitor_iniciado,
+        'thread_ativa': monitor_thread.is_alive() if monitor_thread else False,
+        'watchdog_ativo': watchdog_thread.is_alive() if watchdog_thread else False,
         'total_resultados': len(dados.get('resultados', [])),
         'ultima_verificacao': dados.get('ultima_verificacao'),
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
         'fonte': 'bichocerto.com',
-        'monitor_disponivel': verificar is not None
+        'monitor_disponivel': verificar is not None,
+        'auto_start': os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true',
+        'intervalo': int(os.getenv('MONITOR_INTERVALO', '60'))
     })
 
 @app.route('/api/verificar-agora', methods=['POST'])
@@ -744,6 +820,56 @@ def resultados_json():
 
 # Inicialização automática do monitor (quando módulo é carregado)
 # Verifica variável de ambiente ou inicia automaticamente
+def watchdog_loop():
+    """Watchdog que verifica se o monitor está rodando e reinicia se necessário"""
+    global watchdog_rodando, monitor_thread, monitor_iniciado
+    
+    watchdog_rodando = True
+    logger.info("🔍 Watchdog do monitor iniciado (verifica a cada 30s)")
+    
+    while watchdog_rodando:
+        try:
+            # Verificar se monitor deveria estar rodando mas não está
+            intervalo = int(os.getenv('MONITOR_INTERVALO', '60'))
+            auto_start = os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true'
+            
+            if auto_start and verificar:
+                # Se monitor deveria estar rodando mas thread morreu ou não existe
+                if not monitor_thread or not monitor_thread.is_alive():
+                    if monitor_iniciado:
+                        logger.warning("⚠️  Monitor parou! Reiniciando automaticamente...")
+                    monitor_iniciado = False
+                    iniciar_monitor(intervalo)
+                # Se monitor não foi iniciado ainda
+                elif not monitor_iniciado:
+                    logger.info("🔄 Monitor não estava iniciado. Iniciando agora...")
+                    iniciar_monitor(intervalo)
+        except Exception as e:
+            logger.error(f"❌ Erro no watchdog: {e}")
+        
+        # Verificar a cada 30 segundos
+        for _ in range(30):
+            if not watchdog_rodando:
+                break
+            time.sleep(1)
+    
+    logger.info("🛑 Watchdog encerrado")
+
+def iniciar_watchdog():
+    """Inicia o watchdog em uma thread separada"""
+    global watchdog_thread, watchdog_rodando
+    
+    if watchdog_rodando and watchdog_thread and watchdog_thread.is_alive():
+        return  # Watchdog já está rodando
+    
+    watchdog_thread = threading.Thread(
+        target=watchdog_loop,
+        daemon=True,
+        name="WatchdogMonitor"
+    )
+    watchdog_thread.start()
+    logger.info("✅ Watchdog iniciado")
+
 def inicializar_monitor_automatico():
     """Inicializa o monitor automaticamente se configurado"""
     # Verificar variável de ambiente
@@ -753,6 +879,8 @@ def inicializar_monitor_automatico():
     if auto_start and verificar:
         logger.info(f"🔄 Iniciando monitor automaticamente (intervalo: {intervalo}s)")
         iniciar_monitor(intervalo)
+        # Garantir que watchdog também está rodando
+        iniciar_watchdog()
     else:
         logger.info("ℹ️  Monitor não será iniciado automaticamente (use MONITOR_AUTO_START=true)")
 
