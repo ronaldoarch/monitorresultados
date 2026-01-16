@@ -443,13 +443,13 @@ def api_resultados_organizados():
                     return data
                 sorteios.sort(key=ordenar_por_data, reverse=True)
                 
-                # Se houver apenas um sorteio, usar formato simples
-                if len(sorteios) == 1:
-                    organizados_final[tabela][horario] = sorteios[0]['resultados']
-                else:
-                    # Múltiplos sorteios no mesmo horário: usar o mais recente
-                    # Mas manter estrutura para permitir expansão futura
-                    organizados_final[tabela][horario] = sorteios[0]['resultados']
+                # Sempre usar o sorteio mais recente para cada horário
+                # Cada horário representa um sorteio único
+                organizados_final[tabela][horario] = sorteios[0]['resultados']
+                
+                # Log para debug - verificar quantos horários estão sendo retornados
+                if tabela == "Loteria Nacional":
+                    logger.info(f"📊 API Loteria Nacional: Retornando sorteio {horario} com {len(sorteios[0]['resultados'])} resultados")
         
         # Estatísticas
         total_tabelas = len(organizados_final)

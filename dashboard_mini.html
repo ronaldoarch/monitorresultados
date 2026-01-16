@@ -128,19 +128,21 @@ const c=document.getElementById('container');
 if(dadosFiltrados.length===0){c.innerHTML='<div class="empty">Nenhum resultado encontrado</div>';return;}
 const grupos={};
 dadosFiltrados.forEach(r=>{
-// Agrupar por loteria + horário + data para separar sorteios diferentes
-const data=extrairData(r)||'';
-const k=`${r.loteria}_${r.horario||'N/A'}_${data}`;
+// Agrupar por loteria + horário (cada horário já é um sorteio único)
+// O endpoint já organiza por horário, então não precisamos agrupar por data aqui
+const k=`${r.loteria}_${r.horario||'N/A'}`;
 if(!grupos[k]){
-grupos[k]={loteria:r.loteria,horario:r.horario||'N/A',data:data,resultados:[]};
+grupos[k]={loteria:r.loteria,horario:r.horario||'N/A',resultados:[]};
 }
 grupos[k].resultados.push(r);
 });
-// Ordenar: primeiro por loteria, depois por horário (decrescente), depois por data (decrescente)
+// Ordenar: primeiro por loteria, depois por horário (decrescente para mostrar mais recente primeiro)
 const ord=Object.values(grupos).sort((a,b)=>{
 if(a.loteria!==b.loteria)return a.loteria.localeCompare(b.loteria);
-if(a.horario!==b.horario)return (b.horario||'').localeCompare(a.horario||'');
-return (b.data||'').localeCompare(a.data||'');
+// Ordenar horários numericamente (17h > 15h > 12h > 10h > 8h > 2h)
+const horaA=parseInt((a.horario||'0').replace(/[^0-9]/g,''))||0;
+const horaB=parseInt((b.horario||'0').replace(/[^0-9]/g,''))||0;
+return horaB-horaA;
 });
 c.innerHTML=ord.map(g=>{
 g.resultados.sort((a,b)=>(a.posicao||999)-(b.posicao||999));
@@ -155,9 +157,7 @@ const dataISO=extrairData(r)||'';
 const posicao=r.colocacao||(r.posicao?r.posicao+'°':'');
 return`<div class="card" data-loteria="${r.loteria}" data-data="${dataISO}" data-posicao="${r.posicao||0}"><div class="posicao" style="font-size:0.7rem;color:#94a3b8;margin-bottom:5px">${posicao}</div><div class="numero">${r.numero}</div><div class="animal">${r.animal}</div><div class="timestamp">${dataFormatada}</div></div>`;
 }).join('');
-// Mostrar data no cabeçalho se houver múltiplos sorteios no mesmo horário
-const dataDisplay=g.data?` <span style="font-size:0.8rem;color:#94a3b8">(${g.data})</span>`:'';
-return`<div class="grupo" data-loteria="${g.loteria}"><div class="grupo-header"><h3 class="grupo-titulo">${g.loteria}</h3><span class="grupo-horario">🕐 ${g.horario}${dataDisplay}</span><span class="grupo-count">${g.resultados.length}</span></div><div class="grid">${cards}</div></div>`;
+return`<div class="grupo" data-loteria="${g.loteria}"><div class="grupo-header"><h3 class="grupo-titulo">${g.loteria}</h3><span class="grupo-horario">🕐 ${g.horario}</span><span class="grupo-count">${g.resultados.length}</span></div><div class="grid">${cards}</div></div>`;
 }).join('');
 }
 function filtrar(){
