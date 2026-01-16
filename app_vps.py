@@ -466,10 +466,28 @@ def api_resultados_organizados():
                 resultados_sorteio = organizados[tabela][chave_horario_data]
                 # Ordenar por posição
                 resultados_sorteio.sort(key=lambda x: x.get('posicao', 0))
+                
+                # Recalcular posições relativas (normalizar para começar em 1)
+                # Isso corrige casos onde posições estão sequenciais entre sorteios
+                posicoes_unicas = sorted(set(r.get('posicao', 0) for r in resultados_sorteio))
+                if posicoes_unicas:
+                    posicao_minima = min(posicoes_unicas)
+                    # Se a posição mínima não é 1, recalcular
+                    if posicao_minima > 1:
+                        mapa_posicoes = {pos_antiga: idx + 1 for idx, pos_antiga in enumerate(posicoes_unicas)}
+                        for r in resultados_sorteio:
+                            pos_antiga = r.get('posicao', 0)
+                            if pos_antiga in mapa_posicoes:
+                                r['posicao'] = mapa_posicoes[pos_antiga]
+                                r['colocacao'] = f"{mapa_posicoes[pos_antiga]}°"
+                
                 # Limitar a 7 posições (1° a 7°)
+                resultados_sorteio = [r for r in resultados_sorteio if r.get('posicao', 0) >= 1 and r.get('posicao', 0) <= 7]
+                resultados_sorteio.sort(key=lambda x: x.get('posicao', 0))
                 resultados_sorteio = resultados_sorteio[:7]
+                
                 # Adicionar apenas se tiver resultados válidos (posição 1-7)
-                if resultados_sorteio and resultados_sorteio[0].get('posicao', 0) <= 7:
+                if resultados_sorteio and resultados_sorteio[0].get('posicao', 0) >= 1:
                     horarios_agrupados[horario].append({
                         'data': data,
                         'resultados': resultados_sorteio
