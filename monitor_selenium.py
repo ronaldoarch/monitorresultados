@@ -163,12 +163,16 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
             
             # Aguardar que o elemento "Aguardando Numeros..." mude (indica que resultados carregaram)
             try:
-                WebDriverWait(driver, 15).until(
+                WebDriverWait(driver, 20).until(
                     lambda d: "Aguardando Numeros" not in d.page_source or 
-                              len(d.find_elements(By.CSS_SELECTOR, "h4, [class*='card'], [id*='horario']")) > 0
+                              len(d.find_elements(By.CSS_SELECTOR, "h4, [class*='card'], [id*='horario'], [id*='div_display'], table")) > 0
                 )
                 # Aguardar mais para garantir que conteúdo foi renderizado
-                time.sleep(5)
+                # Para Loteria Nacional, pode precisar de mais tempo para carregar múltiplos sorteios
+                if "loteria-nacional" in url.lower():
+                    time.sleep(10)  # Mais tempo para Loteria Nacional
+                else:
+                    time.sleep(5)
             except TimeoutException:
                 logger.warning(f"Timeout aguardando resultados em {url}")
                 time.sleep(3)  # Aguardar um pouco mesmo com timeout
@@ -182,7 +186,17 @@ def extrair_resultados_selenium(driver, url, loteria_nome):
         
         # Método 1: Extrair de tabelas (estrutura principal das páginas específicas)
         # Procurar por divs com id="div_display_XX" que contêm tabelas com resultados
+        # Também procurar por divs com classes relacionadas a cards/tabelas
         divs_display = soup.find_all('div', id=re.compile(r'div_display_\d+'))
+        
+        # Se não encontrou divs_display, procurar por outras estruturas (para Loteria Nacional)
+        if not divs_display and "loteria-nacional" in url.lower():
+            # Procurar por divs com classes de card ou tabela
+            divs_display = soup.find_all('div', class_=re.compile(r'card|tabela|resultado|sorteio', re.I))
+            # Também procurar por divs que contenham tabelas diretamente
+            if not divs_display:
+                divs_com_tabela = soup.find_all('div')
+                divs_display = [d for d in divs_com_tabela if d.find('table')]
         
         for div_display in divs_display:
             # Buscar título com horário
