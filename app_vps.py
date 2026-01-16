@@ -324,6 +324,40 @@ def api_resultados_por_data():
             'erro': str(e)
         }), 500
 
+@app.route('/api/resultados/debug-ln')
+def api_debug_loteria_nacional():
+    """Endpoint de debug para verificar dados brutos da Loteria Nacional"""
+    try:
+        dados = carregar_resultados()
+        resultados = dados.get('resultados', [])
+        
+        # Filtrar apenas Loteria Nacional
+        resultados_ln = [r for r in resultados if r.get('loteria') == 'Loteria Nacional']
+        
+        # Agrupar por horário
+        por_horario = {}
+        for r in resultados_ln:
+            horario = r.get('horario', 'N/A')
+            if horario not in por_horario:
+                por_horario[horario] = []
+            por_horario[horario].append({
+                'numero': r.get('numero'),
+                'animal': r.get('animal'),
+                'posicao': r.get('posicao'),
+                'horario': horario,
+                'data_extracao': r.get('data_extração'),
+                'timestamp': r.get('timestamp')
+            })
+        
+        return jsonify({
+            'total_resultados': len(resultados_ln),
+            'horarios_encontrados': list(por_horario.keys()),
+            'por_horario': por_horario,
+            'exemplo_resultado': resultados_ln[0] if resultados_ln else None
+        })
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
 @app.route('/api/resultados/organizados')
 def api_resultados_organizados():
     """API para retornar resultados organizados por tabela (loteria) e horário"""
