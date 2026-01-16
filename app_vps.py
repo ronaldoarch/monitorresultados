@@ -430,7 +430,9 @@ def api_resultados_organizados():
             
             # Para cada horário, ordenar sorteios por data (mais recente primeiro)
             # e exibir todos os sorteios separadamente
-            for horario in horarios_agrupados:
+            horarios_ordenados = sorted(horarios_agrupados.keys(), key=lambda h: int(h.replace('h', '').replace(':', '')) if h.replace('h', '').replace(':', '').isdigit() else 999, reverse=True)
+            
+            for horario in horarios_ordenados:
                 sorteios = horarios_agrupados[horario]
                 if not sorteios:
                     continue
@@ -450,6 +452,11 @@ def api_resultados_organizados():
                 # Log para debug - verificar quantos horários estão sendo retornados
                 if tabela == "Loteria Nacional":
                     logger.info(f"📊 API Loteria Nacional: Retornando sorteio {horario} com {len(sorteios[0]['resultados'])} resultados")
+            
+            # Log final para Loteria Nacional
+            if tabela == "Loteria Nacional":
+                total_horarios_retornados = len(organizados_final[tabela])
+                logger.info(f"📊 API Loteria Nacional: Total de {total_horarios_retornados} horários retornados: {list(organizados_final[tabela].keys())}")
         
         # Estatísticas
         total_tabelas = len(organizados_final)
@@ -459,6 +466,13 @@ def api_resultados_organizados():
             for tabela in organizados_final.values() 
             for resultados in tabela.values()
         )
+        
+        # Log detalhado para Loteria Nacional
+        if "Loteria Nacional" in organizados_final:
+            ln_horarios = organizados_final["Loteria Nacional"]
+            logger.info(f"📊 API Final: Loteria Nacional tem {len(ln_horarios)} horários: {list(ln_horarios.keys())}")
+            for horario, resultados in ln_horarios.items():
+                logger.info(f"   🕐 {horario}: {len(resultados)} resultados")
         
         return jsonify({
             'organizados': organizados_final,
