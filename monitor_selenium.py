@@ -32,6 +32,12 @@ try:
     import time
     import hashlib
     import re
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        # Fallback para Python < 3.9
+        from pytz import timezone
+        ZoneInfo = lambda tz: timezone(tz)
     import logging
 except ImportError as e:
     print(f"❌ Erro ao importar bibliotecas: {e}")

@@ -309,13 +309,19 @@ def api_resultados_organizados():
         
         # Função para extrair data normalizada
         def extrair_data_normalizada(resultado):
+            from datetime import datetime
+            try:
+                from zoneinfo import ZoneInfo
+            except ImportError:
+                from pytz import timezone
+                ZoneInfo = lambda tz: timezone(tz)
+            
             if 'data_extração' in resultado and resultado['data_extração']:
                 data = resultado['data_extração']
                 if data and str(data).strip():
                     return str(data).strip()
             if 'timestamp' in resultado and resultado['timestamp']:
                 try:
-                    from datetime import datetime
                     timestamp = resultado['timestamp']
                     if timestamp:
                         dt = datetime.fromisoformat(str(timestamp).replace('Z', '+00:00'))
@@ -323,8 +329,7 @@ def api_resultados_organizados():
                 except Exception as e:
                     logger.debug(f"Erro ao extrair data do timestamp: {e}")
                     pass
-            from datetime import datetime
-            return datetime.now().strftime('%d/%m/%Y')
+            return datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y')
         
         # Organizar por tabela (loteria), horário e data (sorteio específico)
         organizados = {}
