@@ -668,7 +668,7 @@ def verificar():
     # Deduplicar antes de adicionar posições
     dados_anteriores['resultados'] = deduplicar_resultados_por_chave(dados_anteriores['resultados'])
     dados_anteriores['resultados'] = adicionar_posicoes(dados_anteriores['resultados'])
-    dados_anteriores['ultima_verificacao'] = datetime.now().isoformat()
+    dados_anteriores['ultima_verificacao'] = datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat()
     salvar_resultados(dados_anteriores)
     return 0
 

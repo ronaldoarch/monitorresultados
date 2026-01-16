@@ -13,6 +13,11 @@ import json
 import threading
 import time
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from pytz import timezone
+    ZoneInfo = lambda tz: timezone(tz)
 from flask import Flask, jsonify, send_from_directory, render_template_string, request
 from flask_cors import CORS
 
@@ -141,7 +146,7 @@ def api_resultados():
                 return jsonify({
                     'resultados': resultados,
                     'summary': resultado.get('summary', {}),
-                    'ultima_verificacao': datetime.now().isoformat(),
+                    'ultima_verificacao': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
                     'fonte': 'bichocerto.com'
                 })
         except Exception as e:
