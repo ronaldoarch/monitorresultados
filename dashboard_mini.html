@@ -105,6 +105,12 @@ estado:r.estado||'BR'
 }
 }
 }
+// Debug: verificar quantos resultados da Loteria Nacional foram carregados
+const lnResultados=dados.filter(r=>r.loteria==='Loteria Nacional');
+if(lnResultados.length>0){
+const horariosLN=[...new Set(lnResultados.map(r=>r.horario))];
+console.log(`🔍 DEBUG: Loteria Nacional - ${lnResultados.length} resultados em ${horariosLN.length} horários:`,horariosLN);
+}
 dadosFiltrados=dados;
 document.getElementById('total').textContent=dados.length;
 if(d.ultima_verificacao){
