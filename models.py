@@ -43,8 +43,9 @@ class Aposta(Base):
     aposta_id_externo = Column(String(50), nullable=True)  # ID da aposta no site externo
     usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
     extraction_id = Column(Integer, ForeignKey('extractions.id'), nullable=True)  # Opcional se não usar extrações
-    numero = Column(String(4), nullable=False)  # Número apostado
-    animal = Column(String(50), nullable=False)  # Animal apostado
+    numero = Column(String(4), nullable=False)  # Número apostado (primeiro número se múltiplos)
+    numeros_multiplos = Column(String(50), nullable=True)  # Números múltiplos (ex: "17-18" para dupla, "12-13-19" para terno)
+    animal = Column(String(50), nullable=True)  # Animal apostado (opcional para alguns tipos)
     valor = Column(Float, nullable=False)  # Valor da aposta
     loteria = Column(String(100), nullable=False)  # Qual loteria (para exibição)
     horario = Column(String(10), nullable=True)  # Horário do sorteio (ex: "11:00") - opcional

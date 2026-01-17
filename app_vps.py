@@ -908,10 +908,10 @@ def api_apostas_todas():
                     'id': a.id,
                     'aposta_id_externo': a.aposta_id_externo,
                     'usuario_id': a.usuario_id,
-                    'numero': a.numero,
-                    'animal': a.animal,
+                    'numero': a.numeros_multiplos if a.numeros_multiplos else a.numero,  # Mostrar múltiplos se tiver
+                    'animal': a.animal or '',
                     'loteria': a.loteria,
-                    'horario': a.horario,
+                    'horario': a.horario or 'N/A',
                     'valor': a.valor,
                     'status': a.status,
                     'data_aposta': a.data_aposta.isoformat() if a.data_aposta else None
