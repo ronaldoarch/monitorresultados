@@ -858,14 +858,21 @@ def api_receber_aposta():
     try:
         dados = request.json
         
-        # Validar campos obrigatórios
-        campos_obrigatorios = ['usuario_id', 'numero', 'animal', 'valor', 'loteria', 'horario']
+        # Validar campos obrigatórios (horario e loteria podem ser opcionais se tiver extraction_id)
+        campos_obrigatorios = ['usuario_id', 'numero', 'valor']
         for campo in campos_obrigatorios:
             if campo not in dados:
                 return jsonify({
                     'sucesso': False,
                     'erro': f'Campo obrigatório ausente: {campo}'
                 }), 400
+        
+        # Validar se tem loteria OU extraction_id
+        if 'loteria' not in dados and 'extraction_id' not in dados:
+            return jsonify({
+                'sucesso': False,
+                'erro': 'É necessário informar "loteria" ou "extraction_id"'
+            }), 400
         
         # Receber aposta
         aposta_id = bot_liquidacao.receber_aposta(dados)

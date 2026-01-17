@@ -129,16 +129,57 @@ class BotLiquidacao:
                     logger.info(f"⚠️  Aposta {dados_aposta['aposta_id_externo']} já existe")
                     return existente.id
             
+            # Processar loteria - se vier como ID numérico, tentar buscar nome
+            loteria = dados_aposta.get('loteria', '')
+            if loteria.isdigit():
+                # Se loteria é um número, pode ser ID da extração
+                # Tentar buscar nome da loteria pela extração
+                extraction_id = dados_aposta.get('extraction_id') or int(loteria) if loteria.isdigit() else None
+                if extraction_id:
+                    from models import Extracao
+                    extracao = session.query(Extracao).get(extraction_id)
+                    if extracao:
+                        loteria = extracao.loteria
+                    else:
+                        # Se não encontrou extração, usar nome padrão baseado no ID
+                        loteria = f"Loteria {loteria}"
+                else:
+                    loteria = f"Loteria {loteria}"
+            
+            # Processar horário - pode vir vazio ou em formato diferente
+            horario = dados_aposta.get('horario', '')
+            if not horario or horario.strip() == '':
+                # Tentar extrair do extraction_id se tiver
+                extraction_id = dados_aposta.get('extraction_id')
+                if extraction_id:
+                    from models import Extracao
+                    extracao = session.query(Extracao).get(extraction_id)
+                    if extracao:
+                        horario = extracao.horario
+                    else:
+                        horario = 'N/A'
+                else:
+                    horario = 'N/A'
+            
+            # Processar número - pode vir como múltiplos números (ex: "12-13-19" para terno)
+            numero_raw = str(dados_aposta.get('numero', ''))
+            # Se tiver hífen, é múltiplos números (terno, duque, etc)
+            if '-' in numero_raw:
+                # Pegar primeiro número para armazenar (ou todos separados)
+                numero = numero_raw.split('-')[0].strip().zfill(4)
+            else:
+                numero = numero_raw.zfill(4)
+            
             # Criar aposta
             aposta = Aposta(
                 aposta_id_externo=str(dados_aposta.get('aposta_id_externo', '')),
                 usuario_id=dados_aposta['usuario_id'],
                 extraction_id=dados_aposta.get('extraction_id'),
-                numero=str(dados_aposta['numero']).zfill(4),
-                animal=dados_aposta['animal'],
+                numero=numero,
+                animal=dados_aposta.get('animal', ''),
                 valor=float(dados_aposta['valor']),
-                loteria=dados_aposta['loteria'],
-                horario=dados_aposta['horario'],
+                loteria=loteria,
+                horario=horario,
                 tipo_aposta=dados_aposta.get('tipo_aposta', 'grupo'),
                 multiplicador=float(dados_aposta.get('multiplicador', 18.0)),
                 status='pendente'

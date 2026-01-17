@@ -47,7 +47,7 @@ class Aposta(Base):
     animal = Column(String(50), nullable=False)  # Animal apostado
     valor = Column(Float, nullable=False)  # Valor da aposta
     loteria = Column(String(100), nullable=False)  # Qual loteria (para exibição)
-    horario = Column(String(10), nullable=False)  # Horário do sorteio (ex: "11:00")
+    horario = Column(String(10), nullable=True)  # Horário do sorteio (ex: "11:00") - opcional
     tipo_aposta = Column(String(20), default='grupo')  # grupo, dezena, centena, milhar
     status = Column(String(20), default='pendente')  # pendente, ganhou, perdeu, cancelada
     multiplicador = Column(Float, default=18.0)  # Multiplicador de ganho
