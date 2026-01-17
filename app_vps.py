@@ -1198,9 +1198,13 @@ if os.getenv('FLASK_ENV') != 'production' or os.getenv('MONITOR_AUTO_START', 'tr
     def iniciar_ao_carregar():
         time.sleep(2)  # Aguardar 2 segundos
         inicializar_monitor_automatico()
+        # Bot também será inicializado dentro de inicializar_monitor_automatico()
     
     # Iniciar em thread separada para não bloquear
     threading.Thread(target=iniciar_ao_carregar, daemon=True).start()
+else:
+    # Mesmo sem monitor, inicializar bot se configurado
+    inicializar_bot_liquidacao()
 
 if __name__ == '__main__':
     import argparse

@@ -156,6 +156,9 @@ document.getElementById('valor-liquidado').textContent=`R$ ${valor.toFixed(2).re
 async function atualizarApostas(){
 try{
 const r=await fetch('/api/apostas/todas');
+if(!r.ok){
+throw new Error(`HTTP ${r.status}`);
+}
 const d=await r.json();
 const tbody=document.getElementById('tbody-apostas');
 if(!d.apostas||d.apostas.length===0){
@@ -188,6 +191,9 @@ document.getElementById('tbody-apostas').innerHTML='<tr><td colspan="10" class="
 async function atualizarLiquidacoes(){
 try{
 const r=await fetch('/api/liquidacoes/todas');
+if(!r.ok){
+throw new Error(`HTTP ${r.status}`);
+}
 const d=await r.json();
 const tbody=document.getElementById('tbody-liquidacoes');
 if(!d.liquidacoes||d.liquidacoes.length===0){
