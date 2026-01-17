@@ -50,12 +50,23 @@ except ImportError:
     INTEGRACAO_PHP_DISPONIVEL = False
     processar_resultados_via_php = None
 
+# Importar bot de liquidação (opcional)
+try:
+    from bot_liquidacao import BotLiquidacao
+    BOT_DISPONIVEL = True
+except ImportError:
+    BOT_DISPONIVEL = False
+    BotLiquidacao = None
+
 # Variável global para controlar monitor
 monitor_rodando = False
 monitor_thread = None
 monitor_iniciado = False
 watchdog_thread = None
 watchdog_rodando = False
+
+# Variável global para bot de liquidação
+bot_liquidacao = None
 
 def iniciar_monitor(intervalo=60):
     """Inicia o monitor em uma thread separada"""
@@ -820,14 +831,172 @@ def api_status():
         'monitor_iniciado': monitor_iniciado,
         'thread_ativa': monitor_thread.is_alive() if monitor_thread else False,
         'watchdog_ativo': watchdog_thread.is_alive() if watchdog_thread else False,
+        'bot_ativo': bot_liquidacao.rodando if bot_liquidacao else False,
         'total_resultados': len(dados.get('resultados', [])),
         'ultima_verificacao': dados.get('ultima_verificacao'),
         'timestamp': datetime.now(ZoneInfo('America/Sao_Paulo')).isoformat(),
         'fonte': 'bichocerto.com',
         'monitor_disponivel': verificar is not None,
+        'bot_disponivel': BOT_DISPONIVEL,
         'auto_start': os.getenv('MONITOR_AUTO_START', 'true').lower() == 'true',
         'intervalo': int(os.getenv('MONITOR_INTERVALO', '60'))
     })
+
+# ==================== ENDPOINTS DO BOT DE LIQUIDAÇÃO ====================
+
+@app.route('/api/apostas/receber', methods=['POST'])
+def api_receber_aposta():
+    """Endpoint para receber apostas do site externo"""
+    global bot_liquidacao
+    
+    if not BOT_DISPONIVEL or not bot_liquidacao:
+        return jsonify({
+            'sucesso': False,
+            'erro': 'Bot de liquidação não disponível'
+        }), 503
+    
+    try:
+        dados = request.json
+        
+        # Validar campos obrigatórios
+        campos_obrigatorios = ['usuario_id', 'numero', 'animal', 'valor', 'loteria', 'horario']
+        for campo in campos_obrigatorios:
+            if campo not in dados:
+                return jsonify({
+                    'sucesso': False,
+                    'erro': f'Campo obrigatório ausente: {campo}'
+                }), 400
+        
+        # Receber aposta
+        aposta_id = bot_liquidacao.receber_aposta(dados)
+        
+        return jsonify({
+            'sucesso': True,
+            'aposta_id_bot': aposta_id,
+            'mensagem': 'Aposta recebida com sucesso'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao receber aposta: {e}", exc_info=True)
+        return jsonify({
+            'sucesso': False,
+            'erro': str(e)
+        }), 500
+
+@app.route('/api/apostas/todas')
+def api_apostas_todas():
+    """Retorna todas as apostas para o dashboard"""
+    global bot_liquidacao
+    
+    if not BOT_DISPONIVEL or not bot_liquidacao:
+        return jsonify({'apostas': []})
+    
+    try:
+        from models import Aposta
+        session = bot_liquidacao.Session()
+        try:
+            apostas = session.query(Aposta).order_by(Aposta.data_aposta.desc()).limit(100).all()
+            return jsonify({
+                'apostas': [{
+                    'id': a.id,
+                    'aposta_id_externo': a.aposta_id_externo,
+                    'usuario_id': a.usuario_id,
+                    'numero': a.numero,
+                    'animal': a.animal,
+                    'loteria': a.loteria,
+                    'horario': a.horario,
+                    'valor': a.valor,
+                    'status': a.status,
+                    'data_aposta': a.data_aposta.isoformat() if a.data_aposta else None
+                } for a in apostas]
+            })
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"Erro ao buscar apostas: {e}")
+        return jsonify({'apostas': [], 'erro': str(e)})
+
+@app.route('/api/liquidacoes/todas')
+def api_liquidacoes_todas():
+    """Retorna todas as liquidações para o dashboard"""
+    global bot_liquidacao
+    
+    if not BOT_DISPONIVEL or not bot_liquidacao:
+        return jsonify({'liquidacoes': []})
+    
+    try:
+        from models import Liquidacao, Aposta
+        from sqlalchemy import func
+        session = bot_liquidacao.Session()
+        try:
+            liquidacoes = session.query(Liquidacao).join(Aposta).order_by(
+                Liquidacao.data_liquidacao.desc()
+            ).limit(100).all()
+            return jsonify({
+                'liquidacoes': [{
+                    'aposta_id': l.aposta_id,
+                    'aposta_id_externo': l.aposta.aposta_id_externo,
+                    'status': l.aposta.status,
+                    'valor_ganho': l.valor_ganho,
+                    'data_liquidacao': l.data_liquidacao.isoformat() if l.data_liquidacao else None
+                } for l in liquidacoes]
+            })
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"Erro ao buscar liquidações: {e}")
+        return jsonify({'liquidacoes': [], 'erro': str(e)})
+
+@app.route('/api/stats')
+def api_stats():
+    """Retorna estatísticas para o dashboard"""
+    global bot_liquidacao
+    
+    if not BOT_DISPONIVEL or not bot_liquidacao:
+        return jsonify({
+            'total_apostas': 0,
+            'liquidacoes_hoje': 0,
+            'valor_liquidado': 0.0
+        })
+    
+    try:
+        from models import Aposta, Liquidacao
+        from sqlalchemy import func
+        session = bot_liquidacao.Session()
+        try:
+            total_apostas = session.query(Aposta).count()
+            hoje = datetime.now(ZoneInfo('America/Sao_Paulo')).date()
+            liquidacoes_hoje = session.query(Liquidacao).filter(
+                func.date(Liquidacao.data_liquidacao) == hoje
+            ).count()
+            valor_liquidado = session.query(func.sum(Liquidacao.valor_ganho)).filter(
+                func.date(Liquidacao.data_liquidacao) == hoje
+            ).scalar() or 0
+            
+            return jsonify({
+                'total_apostas': total_apostas,
+                'liquidacoes_hoje': liquidacoes_hoje,
+                'valor_liquidado': float(valor_liquidado)
+            })
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"Erro ao buscar estatísticas: {e}")
+        return jsonify({
+            'total_apostas': 0,
+            'liquidacoes_hoje': 0,
+            'valor_liquidado': 0.0,
+            'erro': str(e)
+        })
+
+@app.route('/dashboard-bot')
+def dashboard_bot():
+    """Renderiza painel do bot"""
+    try:
+        with open('dashboard_bot.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return jsonify({'erro': 'Dashboard não encontrado'}), 404
 
 @app.route('/api/verificar-agora', methods=['POST'])
 def verificar_agora():
@@ -960,6 +1129,38 @@ def iniciar_watchdog():
     watchdog_thread.start()
     logger.info("✅ Watchdog iniciado")
 
+def inicializar_bot_liquidacao():
+    """Inicializa bot de liquidação se disponível"""
+    global bot_liquidacao
+    
+    if not BOT_DISPONIVEL:
+        logger.info("ℹ️  Bot de liquidação não disponível")
+        return
+    
+    try:
+        # Configurações do bot
+        database_url = os.getenv('BOT_DATABASE_URL', 'sqlite:///apostas.db')
+        site_api_url = os.getenv('SITE_API_URL', None)
+        api_key = os.getenv('SITE_API_KEY', None)
+        
+        bot_liquidacao = BotLiquidacao(
+            database_url=database_url,
+            site_api_url=site_api_url,
+            api_key=api_key
+        )
+        
+        # Iniciar bot automaticamente
+        bot_auto_start = os.getenv('BOT_AUTO_START', 'true').lower() == 'true'
+        if bot_auto_start:
+            bot_liquidacao.iniciar()
+            logger.info("✅ Bot de liquidação iniciado automaticamente")
+        else:
+            logger.info("ℹ️  Bot de liquidação criado mas não iniciado (use BOT_AUTO_START=true)")
+            
+    except Exception as e:
+        logger.error(f"❌ Erro ao inicializar bot de liquidação: {e}", exc_info=True)
+        bot_liquidacao = None
+
 def inicializar_monitor_automatico():
     """Inicializa o monitor automaticamente se configurado"""
     # Verificar variável de ambiente
@@ -973,6 +1174,9 @@ def inicializar_monitor_automatico():
         iniciar_watchdog()
     else:
         logger.info("ℹ️  Monitor não será iniciado automaticamente (use MONITOR_AUTO_START=true)")
+    
+    # Inicializar bot de liquidação
+    inicializar_bot_liquidacao()
 
 # Hook do Gunicorn para iniciar monitor quando worker é criado
 def on_starting(server):

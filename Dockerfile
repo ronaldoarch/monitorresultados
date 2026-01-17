@@ -28,9 +28,14 @@ COPY monitor_selenium.py .
 COPY monitor_deunoposte.py .
 COPY integracao_endpoint_php.py .
 COPY dashboard_mini.html .
+COPY dashboard_bot.html .
 COPY gunicorn_config.py .
 COPY comparar_horarios.py .
 COPY reprocessar_separar_loterias.py .
+COPY bot_liquidacao.py .
+COPY matching_resultados.py .
+COPY integracao_site.py .
+COPY models.py .
 
 # Criar diretório para resultados
 RUN mkdir -p /app/data

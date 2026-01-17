@@ -17,6 +17,8 @@ h1{font-size:2rem;color:#6366f1;margin-bottom:10px}
 .controls{margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap}
 .btn{background:#6366f1;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer}
 .btn:hover{background:#4f46e5}
+a{text-decoration:none;transition:opacity 0.2s}
+a:hover{opacity:0.9}
 .select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;padding:10px;border-radius:6px;min-width:200px}
 .input-date{background:#1e293b;color:#f1f5f9;border:1px solid #334155;padding:10px;border-radius:6px;min-width:180px;font-size:0.9rem}
 .input-date::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer}
@@ -35,7 +37,11 @@ h1{font-size:2rem;color:#6366f1;margin-bottom:10px}
 </head>
 <body>
 <div class="container">
-<header><h1>🎰 Monitor de Resultados</h1><p>Resultados do Bicho Certo</p></header>
+<header>
+<h1>🎰 Monitor de Resultados</h1>
+<p>Resultados do Bicho Certo</p>
+<a href="/dashboard-bot" style="display:inline-block;margin-top:15px;background:#10b981;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600">🤖 Painel do Bot</a>
+</header>
 <div class="stats">
 <div class="stat"><div class="stat-value" id="total">0</div><div class="stat-label">Total</div></div>
 <div class="stat"><div class="stat-value" id="ultima">N/A</div><div class="stat-label">Última Verificação</div></div>

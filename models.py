@@ -40,8 +40,9 @@ class Aposta(Base):
     __tablename__ = 'apostas'
     
     id = Column(Integer, primary_key=True)
+    aposta_id_externo = Column(String(50), nullable=True)  # ID da aposta no site externo
     usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
-    extraction_id = Column(Integer, ForeignKey('extractions.id'), nullable=False)  # CRÍTICO: Vinculado à extração
+    extraction_id = Column(Integer, ForeignKey('extractions.id'), nullable=True)  # Opcional se não usar extrações
     numero = Column(String(4), nullable=False)  # Número apostado
     animal = Column(String(50), nullable=False)  # Animal apostado
     valor = Column(Float, nullable=False)  # Valor da aposta
